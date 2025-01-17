@@ -8,9 +8,9 @@ import (
 )
 
 func TestTimerStarted(t *testing.T) {
-    messages := make(chan timerUpdate, 1)
+    messages := make(chan TimerUpdate, 1)
     done := make(chan bool, 1)
-    timer := &timer{
+    timer := &Timer{
         id: uuid.New(),
         alias: nil,
         ticker: time.NewTicker(1 * time.Millisecond),
@@ -25,9 +25,9 @@ func TestTimerStarted(t *testing.T) {
 }
 
 func TestTimerTimeOuted(t *testing.T) {
-    messages := make(chan timerUpdate, 1)
+    messages := make(chan TimerUpdate, 1)
     done := make(chan bool, 1)
-    timer := &timer{
+    timer := &Timer{
         id: uuid.New(),
         alias: nil,
         ticker: time.NewTicker(1 * time.Millisecond),

@@ -16,27 +16,27 @@ const (
     resume = "RESUME"
 )
 
-type timer struct {
+type Timer struct {
     id uuid.UUID
     alias *string
     ticker *time.Ticker
-    messages chan timerUpdate
+    messages chan TimerUpdate
     duration int
     currentTime int
     done chan bool
 }
 
-type timerUpdate struct {
+type TimerUpdate struct {
     timerId uuid.UUID
     name string
     message string
 }
 
-func new(id uuid.UUID, alias *string, duration int) *timer {
+func New(id uuid.UUID, alias *string, duration int) *Timer {
     ticker := time.NewTicker(1 * time.Second)
-    messages := make(chan timerUpdate)
-    done := make(chan bool)
-    return &timer{
+    messages := make(chan TimerUpdate, 1)
+    done := make(chan bool, 1)
+    return &Timer{
         id: id,
         alias: alias,
         ticker: ticker,
@@ -47,7 +47,7 @@ func new(id uuid.UUID, alias *string, duration int) *timer {
     }
 }
 
-func (t *timer)start(duration int) {
+func (t *Timer)start(duration int) {
     t.duration = duration
     t.currentTime = 0
     
@@ -56,23 +56,23 @@ func (t *timer)start(duration int) {
         select {
             case <- t.ticker.C:
                 t.currentTime++
-                t.messages <- timerUpdate{ timerId: t.id, name: update, message: strconv.Itoa(t.currentTime) }
+                t.messages <- TimerUpdate{ timerId: t.id, name: update, message: strconv.Itoa(t.currentTime) }
             case <- t.done:
                 return
             }
         }
-        t.messages <- timerUpdate{ timerId: t.id, name: timeOut }
+        t.messages <- TimerUpdate{ timerId: t.id, name: timeOut }
     }
-    t.messages <- timerUpdate{ timerId: t.id, name: start }
+    t.messages <- TimerUpdate{ timerId: t.id, name: start }
     go countdown()
 }
 
-func (t *timer)pause() {
+func (t *Timer)pause() {
     t.ticker.Stop()
-    t.messages <- timerUpdate{ timerId: t.id, name: pause }
+    t.messages <- TimerUpdate{ timerId: t.id, name: pause }
 }
 
-func (t *timer)resume() {
+func (t *Timer)resume() {
     t.ticker.Reset(1 * time.Second)
-    t.messages <- timerUpdate{ timerId: t.id, name: resume }
+    t.messages <- TimerUpdate{ timerId: t.id, name: resume }
 }
