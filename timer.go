@@ -18,7 +18,6 @@ const (
 
 type Timer struct {
     id uuid.UUID
-    alias *string
     ticker *time.Ticker
     messages chan TimerUpdate
     duration int
@@ -32,22 +31,21 @@ type TimerUpdate struct {
     message string
 }
 
-func New(id uuid.UUID, alias *string, duration int) *Timer {
+func New(id uuid.UUID) *Timer {
     ticker := time.NewTicker(1 * time.Second)
     messages := make(chan TimerUpdate, 1)
     done := make(chan bool, 1)
     return &Timer{
         id: id,
-        alias: alias,
         ticker: ticker,
-        duration: duration,
+        duration: 0,
         currentTime: 0,
         messages: messages,
         done: done,
     }
 }
 
-func (t *Timer)start(duration int) {
+func (t *Timer)Start(duration int) {
     t.duration = duration
     t.currentTime = 0
     
@@ -67,12 +65,16 @@ func (t *Timer)start(duration int) {
     go countdown()
 }
 
-func (t *Timer)pause() {
+func (t *Timer)Pause() {
     t.ticker.Stop()
     t.messages <- TimerUpdate{ timerId: t.id, name: pause }
 }
 
-func (t *Timer)resume() {
+func (t *Timer)Resume() {
     t.ticker.Reset(1 * time.Second)
     t.messages <- TimerUpdate{ timerId: t.id, name: resume }
+}
+
+func (t *Timer)Subscribe() (chan TimerUpdate, chan bool) {
+    return t.messages, t.done
 }
