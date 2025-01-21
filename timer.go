@@ -126,3 +126,10 @@ func (t *timer) parseCommand(command timerCommand) error {
 	}
 	return nil
 }
+
+func (t *timer) close() {
+    close(t.done)
+    close(t.messages)
+    close(t.commands)
+    t.ticker.Stop()
+}
