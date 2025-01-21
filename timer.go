@@ -11,8 +11,8 @@ import (
 
 const (
 	//updates
-	update  = "UPDATE"
-	timeOut = "TIME_OUT"
+	currentTime = "CURRENT_TIME"
+	timeOut     = "TIME_OUT"
 	//commands
 	start  = "START"
 	stop   = "STOP"
@@ -20,106 +20,109 @@ const (
 	resume = "RESUME"
 )
 
-type Timer struct {
+type timer struct {
 	id          uuid.UUID
 	ticker      *time.Ticker
-	messages    chan TimerUpdate
-	commands    chan TimerCommand
+	messages    chan timerUpdate
+	commands    chan timerCommand
 	duration    int
 	currentTime int
 	isActive    bool
-	Done        chan bool
+	done        chan bool
 }
 
-type TimerUpdate struct {
+type timerUpdate struct {
 	timerId uuid.UUID
 	name    string
 	message string
 }
 
-type TimerCommand struct {
+type timerCommand struct {
 	name string
 	arg  string
 }
 
-func New(id uuid.UUID) *Timer {
+func New(id uuid.UUID) *timer {
 	ticker := time.NewTicker(1 * time.Second)
-	messages := make(chan TimerUpdate, 1)
+	messages := make(chan timerUpdate, 1)
+	commands := make(chan timerCommand, 1)
 	done := make(chan bool, 1)
-	timer := &Timer{
+
+	timer := &timer{
 		id:          id,
 		ticker:      ticker,
 		duration:    0,
 		currentTime: 0,
 		messages:    messages,
-		Done:        done,
+		commands:    commands,
+		done:        done,
 	}
+
 	go timer.listenCommands()
 	return timer
 }
 
-func (t *Timer) Start(duration int) {
+func (t *timer) start(duration int) {
 	if t.isActive {
 		return
 	}
+
 	t.duration = duration
 	t.currentTime = 0
 
 	countdown := func() {
-        defer t.ticker.Stop()
+		defer t.ticker.Stop()
 
 		for t.currentTime < t.duration {
 			select {
 			case <-t.ticker.C:
 				t.currentTime++
-				t.messages <- TimerUpdate{timerId: t.id, name: update, message: strconv.Itoa(t.currentTime)}
-			case <-t.Done:
+				t.messages <- timerUpdate{timerId: t.id, name: currentTime, message: strconv.Itoa(t.currentTime)}
+			case <-t.done:
 				return
 			}
 		}
-		t.messages <- TimerUpdate{timerId: t.id, name: timeOut}
+		t.messages <- timerUpdate{timerId: t.id, name: timeOut}
 	}
 	go countdown()
 }
 
-func (t *Timer) Pause() {
+func (t *timer) pause() {
 	t.ticker.Stop()
 }
 
-func (t *Timer) Resume() {
+func (t *timer) resume() {
 	t.ticker.Reset(1 * time.Second)
 }
 
-func (t *Timer) Subscribe() (chan TimerUpdate, chan bool) {
-	return t.messages, t.Done
-}
-
-func (t *Timer) listenCommands() {
+func (t *timer) listenCommands() {
 	for {
 		select {
 		case command := <-t.commands:
 			err := t.parseCommand(command)
-			log.Printf("ERROR: %v", err)
-		case <-t.Done:
-            return
+			if err != nil {
+				log.Print(err)
+			}
+		case <-t.done:
+			return
 		}
 	}
 }
 
-func (t *Timer) parseCommand(command TimerCommand) error {
+func (t *timer) parseCommand(command timerCommand) error {
 	switch command.name {
 	case start:
 		duration, err := strconv.Atoi(command.arg)
 		if err != nil {
-			return errors.New("Can not parse timer duration")
+			return errors.New("timer parseCommand: can not parse timer duration")
 		}
-		t.Start(duration)
+		t.start(duration)
 	case pause:
-		t.Pause()
+		t.pause()
 	case resume:
-		t.Resume()
+		t.resume()
 	default:
-		return errors.New("Unknown command")
+		return errors.New("timer parseCommand: unknown command")
 	}
 	return nil
 }
