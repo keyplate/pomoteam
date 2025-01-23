@@ -128,8 +128,8 @@ func (t *timer) parseCommand(command timerCommand) error {
 }
 
 func (t *timer) close() {
-    close(t.done)
-    close(t.messages)
-    close(t.commands)
-    t.ticker.Stop()
+	close(t.done)
+	close(t.messages)
+	close(t.commands)
+	t.ticker.Stop()
 }

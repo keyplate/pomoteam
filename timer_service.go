@@ -23,6 +23,6 @@ func (t *TimerService) Delete(id uuid.UUID) error {
 		return errors.New("There is no timer with this id")
 	}
 
-    timer.close()    
+	timer.close()
 	return nil
 }
