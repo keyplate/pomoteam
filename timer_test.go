@@ -97,7 +97,7 @@ func TestTimerResumed(t *testing.T) {
 func TestParserRoutineRunning(t *testing.T) {
 	expectedMessage := currentTime
 	done := make(chan bool, 1)
-	timer := New(uuid.New())
+	timer := New()
 	timer.commands <- timerCommand{name: start, arg: "3"}
 
 	go func() {

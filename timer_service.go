@@ -11,10 +11,9 @@ type TimerService struct {
 }
 
 func (t *TimerService) Create() uuid.UUID {
-	id := uuid.New()
-	timer := New(id)
-	t.timerPool[id] = *timer
-	return id
+	timer := New()
+	t.timerPool[timer.id] = *timer
+	return timer.id
 }
 
 func (t *TimerService) Delete(id uuid.UUID) error {

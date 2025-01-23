@@ -42,7 +42,8 @@ type timerCommand struct {
 	arg  string
 }
 
-func New(id uuid.UUID) *timer {
+func New() *timer {
+    id := uuid.New()
 	ticker := time.NewTicker(1 * time.Second)
 	messages := make(chan timerUpdate, 1)
 	commands := make(chan timerCommand, 1)
