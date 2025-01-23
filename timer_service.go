@@ -7,7 +7,7 @@ import (
 )
 
 type TimerService struct {
-	timerPool map[uuid.UUID]Timer
+	timerPool map[uuid.UUID]timer
 }
 
 func (t *TimerService) Create() uuid.UUID {
@@ -23,6 +23,6 @@ func (t *TimerService) Delete(id uuid.UUID) error {
 		return errors.New("There is no timer with this id")
 	}
 
-	timer.Delete()
+    timer.close()    
 	return nil
 }
