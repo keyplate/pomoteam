@@ -4,8 +4,6 @@ import (
 	"slices"
 	"testing"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 func TestTimerStarted(t *testing.T) {
