@@ -7,12 +7,12 @@ import (
 )
 
 type TimerService struct {
-	timerPool map[uuid.UUID]timer
+	timerPool map[uuid.UUID]*timer
 }
 
 func (t *TimerService) Create() uuid.UUID {
 	timer := New()
-	t.timerPool[timer.id] = *timer
+	t.timerPool[timer.id] = timer
 	return timer.id
 }
 
@@ -24,4 +24,12 @@ func (t *TimerService) Delete(id uuid.UUID) error {
 
 	timer.close()
 	return nil
+}
+
+func (t *TimerService) Get(id uuid.UUID) (*timer, error) {
+	timer, ok := t.timerPool[id]
+	if !ok {
+		return nil, errors.New("there is no timer with this id")
+	}
+	return timer, nil
 }

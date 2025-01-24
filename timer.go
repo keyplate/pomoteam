@@ -43,7 +43,7 @@ type timerCommand struct {
 }
 
 func New() *timer {
-    id := uuid.New()
+	id := uuid.New()
 	ticker := time.NewTicker(1 * time.Second)
 	messages := make(chan timerUpdate, 1)
 	commands := make(chan timerCommand, 1)
