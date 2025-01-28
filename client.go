@@ -31,7 +31,7 @@ type Client struct {
 	conn  *websocket.Conn
 }
 
-func ServeWs(ts TimerService, w http.ResponseWriter, r *http.Request) {
+func ServeWs(ts *TimerService, w http.ResponseWriter, r *http.Request) {
 	p := strings.Split(r.URL.Path, "/")
 	if len(p) == 1 {
 		http.Error(w, "bad request", 400)
