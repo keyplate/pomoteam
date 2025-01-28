@@ -32,14 +32,14 @@ type timer struct {
 }
 
 type timerUpdate struct {
-    TimerId uuid.UUID `json:"timerId"`
-    Name    string `json:"name"`
-    Arg string `json:"arg"`
+	TimerId uuid.UUID `json:"timerId"`
+	Name    string    `json:"name"`
+	Arg     string    `json:"arg"`
 }
 
 type timerCommand struct {
-    Name string `json:"name"`
-    Arg  string `json:"arg"`
+	Name string `json:"name"`
+	Arg  string `json:"arg"`
 }
 
 func New() *timer {
