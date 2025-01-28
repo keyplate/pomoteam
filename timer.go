@@ -73,10 +73,12 @@ func (t *timer) start(duration int) {
 
 	countdown := func() {
 		defer func() {
-            t.ticker.Stop()
-            t.isActive = false
-        }() 
+			t.ticker.Stop()
+			t.isActive = false
+		}()
 
+		t.isActive = true
+		t.ticker.Reset(1 * time.Second)
 		for t.currentTime < t.duration {
 			select {
 			case <-t.ticker.C:

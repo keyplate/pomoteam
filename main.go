@@ -19,7 +19,7 @@ func main() {
 	serveMux.HandleFunc("POST /api/timer", func(w http.ResponseWriter, r *http.Request) {
 		HandleCreateTimer(ts, w, r)
 	})
-	serveMux.HandleFunc("POST /ws/{timerId}", func(w http.ResponseWriter, r *http.Request) {
+	serveMux.HandleFunc("GET /ws/{timerId}", func(w http.ResponseWriter, r *http.Request) {
 		ServeWs(ts, w, r)
 	})
 

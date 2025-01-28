@@ -34,7 +34,7 @@ func ServeWs(ts *TimerService, w http.ResponseWriter, r *http.Request) {
 	timerId, err := uuid.Parse(r.PathValue("timerId"))
 	if err != nil {
 		http.Error(w, "bad requset", 400)
-        log.Print(err)
+		log.Print(err)
 		return
 	}
 
