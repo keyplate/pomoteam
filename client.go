@@ -3,7 +3,6 @@ package main
 import (
 	"log"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -32,15 +31,10 @@ type Client struct {
 }
 
 func ServeWs(ts *TimerService, w http.ResponseWriter, r *http.Request) {
-	p := strings.Split(r.URL.Path, "/")
-	if len(p) == 1 {
-		http.Error(w, "bad request", 400)
-		return
-	}
-
-	timerId, err := uuid.Parse(p[1])
+	timerId, err := uuid.Parse(r.PathValue("timerId"))
 	if err != nil {
 		http.Error(w, "bad requset", 400)
+        log.Print(err)
 		return
 	}
 
