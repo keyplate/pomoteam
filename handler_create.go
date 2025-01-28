@@ -23,7 +23,7 @@ func RespondWithError(w http.ResponseWriter, code int, msg string) error {
 
 func HandleCreateTimer(ts *TimerService, w http.ResponseWriter, r *http.Request) {
 	alias := struct {
-		Alias *string `json:"alias"`
+		Alias *string `json:"alias, omitempty"`
 	}{}
 	defer r.Body.Close()
 
