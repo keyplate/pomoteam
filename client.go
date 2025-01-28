@@ -90,7 +90,7 @@ func (c *Client) write() {
 
 	for {
 		select {
-		case update := <-c.timer.messages:
+		case update := <-c.timer.updates:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			err := c.conn.WriteJSON(update)
 			if err != nil {

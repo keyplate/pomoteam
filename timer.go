@@ -23,7 +23,7 @@ const (
 type timer struct {
 	id          uuid.UUID
 	ticker      *time.Ticker
-	messages    chan timerUpdate
+	updates     chan timerUpdate
 	commands    chan timerCommand
 	duration    int
 	currentTime int
@@ -32,20 +32,20 @@ type timer struct {
 }
 
 type timerUpdate struct {
-	timerId uuid.UUID
-	name    string
-	message string
+    TimerId uuid.UUID `json:"timerId"`
+    Name    string `json:"name"`
+    Arg string `json:"arg"`
 }
 
 type timerCommand struct {
-	name string
-	arg  string
+    Name string `json:"name"`
+    Arg  string `json:"arg"`
 }
 
 func New() *timer {
 	id := uuid.New()
 	ticker := time.NewTicker(1 * time.Second)
-	messages := make(chan timerUpdate, 1)
+	updates := make(chan timerUpdate, 1)
 	commands := make(chan timerCommand, 1)
 	done := make(chan bool, 1)
 
@@ -54,7 +54,7 @@ func New() *timer {
 		ticker:      ticker,
 		duration:    0,
 		currentTime: 0,
-		messages:    messages,
+		updates:     updates,
 		commands:    commands,
 		done:        done,
 	}
@@ -78,12 +78,12 @@ func (t *timer) start(duration int) {
 			select {
 			case <-t.ticker.C:
 				t.currentTime++
-				t.messages <- timerUpdate{timerId: t.id, name: currentTime, message: strconv.Itoa(t.currentTime)}
+				t.updates <- timerUpdate{TimerId: t.id, Name: currentTime, Arg: strconv.Itoa(t.currentTime)}
 			case <-t.done:
 				return
 			}
 		}
-		t.messages <- timerUpdate{timerId: t.id, name: timeOut}
+		t.updates <- timerUpdate{TimerId: t.id, Name: timeOut}
 	}
 	go countdown()
 }
@@ -111,9 +111,9 @@ func (t *timer) listenCommands() {
 }
 
 func (t *timer) parseCommand(command timerCommand) error {
-	switch command.name {
+	switch command.Name {
 	case start:
-		duration, err := strconv.Atoi(command.arg)
+		duration, err := strconv.Atoi(command.Arg)
 		if err != nil {
 			return errors.New("timer parseCommand: can not parse timer duration")
 		}
@@ -130,7 +130,7 @@ func (t *timer) parseCommand(command timerCommand) error {
 
 func (t *timer) close() {
 	close(t.done)
-	close(t.messages)
+	close(t.updates)
 	close(t.commands)
 	t.ticker.Stop()
 }
