@@ -72,7 +72,10 @@ func (t *timer) start(duration int) {
 	t.currentTime = 0
 
 	countdown := func() {
-		defer t.ticker.Stop()
+		defer func() {
+            t.ticker.Stop()
+            t.isActive = false
+        }() 
 
 		for t.currentTime < t.duration {
 			select {
