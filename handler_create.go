@@ -21,9 +21,9 @@ func RespondWithError(w http.ResponseWriter, code int, msg string) error {
 
 }
 
-func HandleCreateTimer(ts *TimerService, w http.ResponseWriter, r *http.Request) {
+func HandleCreateTimer(hs *HubService, w http.ResponseWriter, r *http.Request) {
 	alias := struct {
-		Alias *string `json:"alias, omitempty"`
+		Alias string `json:"alias,omitempty"`
 	}{}
 	defer r.Body.Close()
 
@@ -39,7 +39,7 @@ func HandleCreateTimer(ts *TimerService, w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	id := ts.Create()
+	id := hs.Create()
 	idBody := map[string]string{"id": id.String()}
 	res, err := json.Marshal(idBody)
 	if err != nil {

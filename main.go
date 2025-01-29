@@ -14,7 +14,7 @@ func main() {
 	port := os.Getenv("SERVER_PORT")
 
 	serveMux := http.NewServeMux()
-	ts := &TimerService{timerPool: map[uuid.UUID]*timer{}}
+	ts := &HubService{hubPool: map[uuid.UUID]*hub{}}
 
 	serveMux.HandleFunc("POST /api/timer", func(w http.ResponseWriter, r *http.Request) {
 		HandleCreateTimer(ts, w, r)

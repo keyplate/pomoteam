@@ -26,11 +26,12 @@ var upgrader = websocket.Upgrader{
 }
 
 type Client struct {
-	timer *timer
-	conn  *websocket.Conn
+	hub  *hub
+	conn *websocket.Conn
+	send chan timerUpdate
 }
 
-func ServeWs(ts *TimerService, w http.ResponseWriter, r *http.Request) {
+func ServeWs(hs *HubService, w http.ResponseWriter, r *http.Request) {
 	timerId, err := uuid.Parse(r.PathValue("timerId"))
 	if err != nil {
 		http.Error(w, "bad requset", 400)
@@ -44,13 +45,13 @@ func ServeWs(ts *TimerService, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	timer, err := ts.Get(timerId)
+	hub, err := hs.Get(timerId)
 	if err != nil {
 		http.Error(w, "bad request", 400)
 		return
 	}
 
-	client := &Client{timer: timer, conn: conn}
+	client := &Client{hub: hub, conn: conn}
 	go client.read()
 	go client.write()
 }
@@ -71,7 +72,7 @@ func (c *Client) read() {
 			}
 			break
 		}
-		c.timer.commands <- command
+		c.hub.commands <- command
 	}
 }
 
@@ -84,7 +85,7 @@ func (c *Client) write() {
 
 	for {
 		select {
-		case update := <-c.timer.updates:
+		case update := <-c.send:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			err := c.conn.WriteJSON(update)
 			if err != nil {
@@ -96,5 +97,13 @@ func (c *Client) write() {
 				return
 			}
 		}
+	}
+}
+
+func (c *Client) close() {
+	close(c.send)
+	err := c.conn.Close()
+	if err != nil {
+		log.Printf("error: %v", err)
 	}
 }

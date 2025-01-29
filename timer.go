@@ -5,8 +5,6 @@ import (
 	"log"
 	"strconv"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 const (
@@ -21,7 +19,6 @@ const (
 )
 
 type timer struct {
-	id          uuid.UUID
 	ticker      *time.Ticker
 	updates     chan timerUpdate
 	commands    chan timerCommand
@@ -32,9 +29,8 @@ type timer struct {
 }
 
 type timerUpdate struct {
-	TimerId uuid.UUID `json:"timerId"`
-	Name    string    `json:"name"`
-	Arg     string    `json:"arg"`
+	Name string `json:"name"`
+	Arg  string `json:"arg"`
 }
 
 type timerCommand struct {
@@ -43,20 +39,13 @@ type timerCommand struct {
 }
 
 func New() *timer {
-	id := uuid.New()
-	ticker := time.NewTicker(1 * time.Second)
-	updates := make(chan timerUpdate, 1)
-	commands := make(chan timerCommand, 1)
-	done := make(chan bool, 1)
-
 	timer := &timer{
-		id:          id,
-		ticker:      ticker,
+		ticker:      time.NewTicker(1 * time.Second),
 		duration:    0,
 		currentTime: 0,
-		updates:     updates,
-		commands:    commands,
-		done:        done,
+		updates:     make(chan timerUpdate),
+		commands:    make(chan timerCommand),
+		done:        make(chan bool),
 	}
 
 	go timer.listenCommands()
@@ -83,12 +72,12 @@ func (t *timer) start(duration int) {
 			select {
 			case <-t.ticker.C:
 				t.currentTime++
-				t.updates <- timerUpdate{TimerId: t.id, Name: currentTime, Arg: strconv.Itoa(t.currentTime)}
+				t.updates <- timerUpdate{Name: currentTime, Arg: strconv.Itoa(t.currentTime)}
 			case <-t.done:
 				return
 			}
 		}
-		t.updates <- timerUpdate{TimerId: t.id, Name: timeOut}
+		t.updates <- timerUpdate{Name: timeOut}
 	}
 	go countdown()
 }
