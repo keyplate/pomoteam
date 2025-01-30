@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/google/uuid"
 	"github.com/joho/godotenv"
+	"github.com/keyplate/pomoteam/internal/timer"
 )
 
 func main() {
@@ -14,13 +14,13 @@ func main() {
 	port := os.Getenv("SERVER_PORT")
 
 	serveMux := http.NewServeMux()
-	ts := &HubService{hubPool: map[uuid.UUID]*hub{}}
+	ts := timer.NewHubService()
 
 	serveMux.HandleFunc("POST /api/timer", func(w http.ResponseWriter, r *http.Request) {
-		HandleCreateTimer(ts, w, r)
+		timer.HandleCreateTimer(ts, w, r)
 	})
-	serveMux.HandleFunc("GET /ws/{timerId}", func(w http.ResponseWriter, r *http.Request) {
-		ServeWs(ts, w, r)
+	serveMux.HandleFunc("GET /ws/{hubId}", func(w http.ResponseWriter, r *http.Request) {
+		timer.ServeWs(ts, w, r)
 	})
 
 	server := http.Server{Handler: serveMux, Addr: port}

@@ -1,4 +1,4 @@
-package main
+package timer
 
 import (
 	"errors"
@@ -38,7 +38,7 @@ type timerCommand struct {
 	Arg  string `json:"arg"`
 }
 
-func New() *timer {
+func NewTimer() *timer {
 	timer := &timer{
 		ticker:      time.NewTicker(1 * time.Second),
 		duration:    0,
@@ -122,7 +122,7 @@ func (t *timer) parseCommand(command timerCommand) error {
 	return nil
 }
 
-func (t *timer) close() {
+func (t *timer) Close() {
 	close(t.done)
 	close(t.updates)
 	close(t.commands)

@@ -1,4 +1,4 @@
-package main
+package timer
 
 import "github.com/google/uuid"
 
@@ -37,7 +37,7 @@ func (h *hub) run() {
 			client.close()
 			delete(h.clients, client)
 		case <-h.done:
-			h.timer.close()
+			h.timer.Close()
 			close(h.commands)
 			close(h.register)
 			close(h.unregister)

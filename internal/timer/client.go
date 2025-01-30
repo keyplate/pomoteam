@@ -1,4 +1,4 @@
-package main
+package timer
 
 import (
 	"log"
@@ -26,13 +26,13 @@ var upgrader = websocket.Upgrader{
 }
 
 type Client struct {
-	hub  *hub
-	conn *websocket.Conn
-	send chan timerUpdate
+    hub   *hub
+	conn  *websocket.Conn
+    send  chan timerUpdate
 }
 
 func ServeWs(hs *HubService, w http.ResponseWriter, r *http.Request) {
-	timerId, err := uuid.Parse(r.PathValue("timerId"))
+	hubId, err := uuid.Parse(r.PathValue("hubId"))
 	if err != nil {
 		http.Error(w, "bad requset", 400)
 		log.Print(err)
@@ -45,20 +45,23 @@ func ServeWs(hs *HubService, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hub, err := hs.Get(timerId)
+	hub, err := hs.get(hubId)
 	if err != nil {
 		http.Error(w, "bad request", 400)
 		return
 	}
 
-	client := &Client{hub: hub, conn: conn}
-	go client.read()
+    client := &Client{hub: hub, conn: conn, send: make(chan timerUpdate)}
+    hub.register <-client
+	
+    go client.read()
 	go client.write()
 }
 
 func (c *Client) read() {
 	defer func() {
 		c.conn.Close()
+        c.hub.unregister <-c
 	}()
 
 	c.conn.SetReadDeadline(time.Now().Add(pongWait))
@@ -81,6 +84,7 @@ func (c *Client) write() {
 	defer func() {
 		c.conn.Close()
 		ticker.Stop()
+        c.hub.unregister <-c
 	}()
 
 	for {
@@ -101,9 +105,9 @@ func (c *Client) write() {
 }
 
 func (c *Client) close() {
-	close(c.send)
-	err := c.conn.Close()
-	if err != nil {
-		log.Printf("error: %v", err)
-	}
+    close(c.send)
+    err := c.conn.Close()
+    if err != nil {
+        log.Printf("error: %v", err)
+    }
 }
