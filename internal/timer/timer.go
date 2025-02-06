@@ -9,12 +9,16 @@ import (
 
 const (
 	//updates
-	currentTime = "CURRENT_TIME"
-	timeOut     = "TIME_OUT"
+	currentTime      = "CURRENT_TIME"
+	timeOut          = "TIME_OUT"
+	started          = "STARTED"
+	stopped          = "STOPPED"
+	durationAdjusted = "DURATION_ADJUSTED"
+	closed           = "CLOSED"
+	resumed          = "RESUMED"
 	//commands
 	start  = "START"
 	stop   = "STOP"
-	pause  = "PAUSE"
 	resume = "RESUME"
 )
 
@@ -30,12 +34,12 @@ type timer struct {
 
 type timerUpdate struct {
 	Name string `json:"name"`
-	Arg  string `json:"arg"`
+	Arg  string `json:"arg,omitempty"`
 }
 
 type timerCommand struct {
 	Name string `json:"name"`
-	Arg  string `json:"arg"`
+	Arg  string `json:"arg,omitempty"`
 }
 
 func NewTimer() *timer {
@@ -68,6 +72,8 @@ func (t *timer) start(duration int) {
 
 		t.isActive = true
 		t.ticker.Reset(1 * time.Second)
+		t.updates <- timerUpdate{Name: started}
+
 		for t.currentTime < t.duration {
 			select {
 			case <-t.ticker.C:
@@ -82,12 +88,14 @@ func (t *timer) start(duration int) {
 	go countdown()
 }
 
-func (t *timer) pause() {
+func (t *timer) stop() {
 	t.ticker.Stop()
+	t.updates <- timerUpdate{Name: stopped}
 }
 
 func (t *timer) resume() {
 	t.ticker.Reset(1 * time.Second)
+	t.updates <- timerUpdate{Name: resumed}
 }
 
 func (t *timer) listenCommands() {
@@ -112,8 +120,8 @@ func (t *timer) parseCommand(command timerCommand) error {
 			return errors.New("timer parseCommand: can not parse timer duration")
 		}
 		t.start(duration)
-	case pause:
-		t.pause()
+	case stop:
+		t.stop()
 	case resume:
 		t.resume()
 	default:
@@ -123,6 +131,7 @@ func (t *timer) parseCommand(command timerCommand) error {
 }
 
 func (t *timer) Close() {
+	t.updates <- timerUpdate{Name: closed}
 	close(t.done)
 	close(t.updates)
 	close(t.commands)
