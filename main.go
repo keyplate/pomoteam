@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/joho/godotenv"
+	"github.com/keyplate/pomoteam/internal"
 	"github.com/keyplate/pomoteam/internal/timer"
 )
 
@@ -16,9 +17,9 @@ func main() {
 	serveMux := http.NewServeMux()
 	ts := timer.NewHubService()
 
-	serveMux.HandleFunc("POST /api/timer", func(w http.ResponseWriter, r *http.Request) {
+	serveMux.HandleFunc("/api/hub", internal.CorsMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		timer.HandleCreateTimer(ts, w, r)
-	})
+	}))
 	serveMux.HandleFunc("GET /ws/{hubId}", func(w http.ResponseWriter, r *http.Request) {
 		timer.ServeWs(ts, w, r)
 	})

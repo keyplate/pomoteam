@@ -12,6 +12,11 @@ func HandleCreateTimer(hs *HubService, w http.ResponseWriter, r *http.Request) {
 	}{}
 	defer r.Body.Close()
 
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
 	dat, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "Couldn't read request body", 400)
@@ -32,7 +37,6 @@ func HandleCreateTimer(hs *HubService, w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "appliation/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.WriteHeader(http.StatusCreated)
 	w.Write(res)
 }

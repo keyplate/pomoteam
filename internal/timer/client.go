@@ -23,19 +23,19 @@ const (
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
+	CheckOrigin:     func(r *http.Request) bool { return true }, //todo: set up adequate cors
 }
 
 type Client struct {
-    hub   *hub
-	conn  *websocket.Conn
-    send  chan timerUpdate
+	hub  *hub
+	conn *websocket.Conn
+	send chan timerUpdate
 }
 
 func ServeWs(hs *HubService, w http.ResponseWriter, r *http.Request) {
 	hubId, err := uuid.Parse(r.PathValue("hubId"))
 	if err != nil {
 		http.Error(w, "bad requset", 400)
-		log.Print(err)
 		return
 	}
 
@@ -51,17 +51,17 @@ func ServeWs(hs *HubService, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-    client := &Client{hub: hub, conn: conn, send: make(chan timerUpdate)}
-    hub.register <-client
-	
-    go client.read()
+	client := &Client{hub: hub, conn: conn, send: make(chan timerUpdate)}
+	hub.register <- client
+
+	go client.read()
 	go client.write()
 }
 
 func (c *Client) read() {
 	defer func() {
 		c.conn.Close()
-        c.hub.unregister <-c
+		c.hub.unregister <- c
 	}()
 
 	c.conn.SetReadDeadline(time.Now().Add(pongWait))
@@ -73,6 +73,7 @@ func (c *Client) read() {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				log.Printf("error: %v", err)
 			}
+			log.Print(command.Arg)
 			break
 		}
 		c.hub.commands <- command
@@ -84,7 +85,7 @@ func (c *Client) write() {
 	defer func() {
 		c.conn.Close()
 		ticker.Stop()
-        c.hub.unregister <-c
+		c.hub.unregister <- c
 	}()
 
 	for {
@@ -105,9 +106,9 @@ func (c *Client) write() {
 }
 
 func (c *Client) close() {
-    close(c.send)
-    err := c.conn.Close()
-    if err != nil {
-        log.Printf("error: %v", err)
-    }
+	close(c.send)
+	err := c.conn.Close()
+	if err != nil {
+		log.Printf("error: %v", err)
+	}
 }
