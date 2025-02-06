@@ -34,7 +34,6 @@ func (h *hub) run() {
 		case client := <-h.register:
 			h.clients[client] = true
 		case client := <-h.unregister:
-			client.close()
 			delete(h.clients, client)
 		case <-h.done:
 			h.timer.Close()
