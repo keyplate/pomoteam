@@ -39,15 +39,15 @@ func ServeWs(hs *HubService, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
 	hub, err := hs.get(hubId)
 	if err != nil {
 		http.Error(w, "bad request", 400)
+		return
+	}
+
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Println(err)
 		return
 	}
 
@@ -70,10 +70,7 @@ func (c *Client) read() {
 		var command timerCommand
 		err := c.conn.ReadJSON(&command)
 		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("error: %v", err)
-			}
-			log.Print(command.Arg)
+			log.Printf("error: %v", err)
 			break
 		}
 		c.hub.commands <- command
