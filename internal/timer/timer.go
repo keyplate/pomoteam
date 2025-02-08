@@ -9,7 +9,7 @@ import (
 
 const (
 	//updates
-	currentTime      = "CURRENT_TIME"
+	timeLeft         = "TIME_LEFT"
 	timeOut          = "TIME_OUT"
 	started          = "STARTED"
 	stopped          = "STOPPED"
@@ -23,13 +23,13 @@ const (
 )
 
 type timer struct {
-	ticker      *time.Ticker
-	updates     chan timerUpdate
-	commands    chan timerCommand
-	duration    int
-	currentTime int
-	isActive    bool
-	done        chan bool
+	ticker   *time.Ticker
+	updates  chan timerUpdate
+	commands chan timerCommand
+	duration int
+	timeLeft int
+	isActive bool
+	done     chan bool
 }
 
 type timerUpdate struct {
@@ -44,12 +44,12 @@ type timerCommand struct {
 
 func NewTimer() *timer {
 	timer := &timer{
-		ticker:      time.NewTicker(1 * time.Second),
-		duration:    0,
-		currentTime: 0,
-		updates:     make(chan timerUpdate),
-		commands:    make(chan timerCommand),
-		done:        make(chan bool),
+		ticker:   time.NewTicker(1 * time.Second),
+		duration: 0,
+		timeLeft: 0,
+		updates:  make(chan timerUpdate),
+		commands: make(chan timerCommand),
+		done:     make(chan bool),
 	}
 
 	go timer.listenCommands()
@@ -62,7 +62,7 @@ func (t *timer) start(duration int) {
 	}
 
 	t.duration = duration
-	t.currentTime = 0
+	t.timeLeft = duration
 
 	countdown := func() {
 		defer func() {
@@ -74,11 +74,11 @@ func (t *timer) start(duration int) {
 		t.ticker.Reset(1 * time.Second)
 		t.updates <- timerUpdate{Name: started}
 
-		for t.currentTime < t.duration {
+		for t.timeLeft > 0 {
 			select {
 			case <-t.ticker.C:
-				t.currentTime++
-				t.updates <- timerUpdate{Name: currentTime, Arg: strconv.Itoa(t.currentTime)}
+				t.timeLeft--
+				t.updates <- timerUpdate{Name: timeLeft, Arg: strconv.Itoa(t.timeLeft)}
 			case <-t.done:
 				return
 			}
