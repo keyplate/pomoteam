@@ -89,11 +89,13 @@ func (t *timer) start(duration int) {
 }
 
 func (t *timer) stop() {
+    t.isActive = false
 	t.ticker.Stop()
 	t.updates <- timerUpdate{Name: stopped}
 }
 
 func (t *timer) resume() {
+    t.isActive = true
 	t.ticker.Reset(1 * time.Second)
 	t.updates <- timerUpdate{Name: resumed}
 }

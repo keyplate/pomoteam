@@ -25,7 +25,7 @@ func TestTimerTimeOuted(t *testing.T) {
 	expectedUpdates := []string{started, currentTime, currentTime, currentTime, timeOut}
 	actualUpdates := []string{}
 	timer := &timer{
-		ticker:   time.NewTicker(1 * time.Millisecond),
+		ticker:  time.NewTicker(1 * time.Millisecond),
 		updates: updates,
 	}
 
@@ -46,23 +46,23 @@ func TestTimerStopped(t *testing.T) {
 	done := make(chan bool)
 
 	timer := &timer{
-		ticker:   time.NewTicker(1 * time.Millisecond),
+		ticker:  time.NewTicker(1 * time.Millisecond),
 		updates: updates,
 	}
 
 	go func() {
-        timer.start(10)
-        time.Sleep(5 * time.Millisecond)
-        timer.stop()
+		timer.start(10)
+		time.Sleep(5 * time.Millisecond)
+		timer.stop()
 		time.Sleep(10 * time.Millisecond)
 		done <- true
 	}()
 
 	select {
-    case upd := <-timer.updates:
-        if upd.Name == timeOut {
-		    t.Fatalf("timer didn't pause")
-        }
+	case upd := <-timer.updates:
+		if upd.Name == timeOut {
+			t.Fatalf("timer didn't pause")
+		}
 	case <-done:
 		return
 	}
@@ -70,12 +70,12 @@ func TestTimerStopped(t *testing.T) {
 
 func TestTimerResumed(t *testing.T) {
 	timer := NewTimer()
-    go func() {
-        timer.start(2)
-        time.Sleep(10 * time.Microsecond)
-        timer.stop()
-        timer.resume()
-    }()
+	go func() {
+		timer.start(2)
+		time.Sleep(10 * time.Microsecond)
+		timer.stop()
+		timer.resume()
+	}()
 
 	go func() {
 		time.Sleep(3 * time.Second)
@@ -83,10 +83,10 @@ func TestTimerResumed(t *testing.T) {
 	}()
 
 	select {
-    case upd := <-timer.updates:
-	    if upd.Name == timeOut {
-            return
-        }	
+	case upd := <-timer.updates:
+		if upd.Name == timeOut {
+			return
+		}
 	case <-timer.done:
 		t.Fatalf("timer didn't resume")
 	}
