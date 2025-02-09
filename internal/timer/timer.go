@@ -20,13 +20,13 @@ const (
 	start  = "START"
 	stop   = "STOP"
 	resume = "RESUME"
+    adjust = "ADJUST"
 )
 
 type timer struct {
 	ticker   *time.Ticker
 	updates  chan timerUpdate
 	commands chan timerCommand
-	duration int
 	timeLeft int
 	isActive bool
 	done     chan bool
@@ -45,7 +45,6 @@ type timerCommand struct {
 func NewTimer() *timer {
 	timer := &timer{
 		ticker:   time.NewTicker(1 * time.Second),
-		duration: 0,
 		timeLeft: 0,
 		updates:  make(chan timerUpdate),
 		commands: make(chan timerCommand),
@@ -61,7 +60,6 @@ func (t *timer) start(duration int) {
 		return
 	}
 
-	t.duration = duration
 	t.timeLeft = duration
 
 	countdown := func() {
@@ -100,6 +98,11 @@ func (t *timer) resume() {
 	t.updates <- timerUpdate{Name: resumed}
 }
 
+func (t *timer) adjust(duration int) {
+    t.timeLeft += duration
+    t.updates <- timerUpdate{Name: durationAdjusted, Arg: strconv.Itoa(duration)}
+}
+
 func (t *timer) listenCommands() {
 	for {
 		select {
@@ -126,6 +129,12 @@ func (t *timer) parseCommand(command timerCommand) error {
 		t.stop()
 	case resume:
 		t.resume()
+    case adjust:
+        duration, err := strconv.Atoi(command.Arg)
+        if err != nil {
+			return errors.New("timer parseCommand: can not parse timer duration")
+        }
+        t.adjust(duration)
 	default:
 		return errors.New("timer parseCommand: unknown command")
 	}
