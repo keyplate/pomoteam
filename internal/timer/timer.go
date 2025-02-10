@@ -71,15 +71,12 @@ func NewTimer(breakDuration, focusDuration int, sessionType string) *timer {
 	return timer
 }
 
-//start runs the timer.
-//First duration evaluated based on the current sessionType, users
-//are notified about the start when started, and timeout when timer ran out of time.
-//After each timer circle session is switched to the opposite.
 func (t *timer) start() {
 	if t.isActive {
 		return
 	}
 
+    //duration is evaluated based on the current sessionType
 	t.timeLeft = int64(t.focusDuration)
 	if t.sessionType == sessionBreak {
 		t.timeLeft = int64(t.breakDuration)
@@ -104,6 +101,7 @@ func (t *timer) start() {
 			}
 		}
 
+        //every successful timer run switches sessionType to the opposite
 		t.switchSession()
 		t.updates <- timerUpdate{Name: timeOut}
 	}
@@ -152,16 +150,16 @@ func (t *timer) resume() {
 }
 
 //adjust alters timer duratin by given delta.
-//If timer is running at the moment of adjustment, only currentTime is affected
-//as it is assumed that user wants to alter only current session duration.
-//If timer is not running the current session duration is affected.
 func (t *timer) adjust(delta int) {
+    //If timer is running at the moment of adjustment, only currentTime is affected
+    //as it is assumed that user wants to alter only current session duration.
     if t.isActive {
 	    t.timeLeft += int64(delta) 
         t.updates <- timerUpdate{Name: durationAdjusted}
         return
     } 
 
+    //If timer is not running the current session duration is affected.
     if t.sessionType == sessionBreak {
         t.breakDuration += delta
     } else {
