@@ -2,6 +2,17 @@ package timer
 
 import "github.com/google/uuid"
 
+const (
+    connect    = "CONNECT"
+    disconnect = "DISCONNECT"
+)
+
+type update struct {
+	UpdateType string            `json:"type"`
+	Name       string            `json:"name"`
+	Args       map[string]string `json:"args"`
+}
+
 type hub struct {
 	id         uuid.UUID
 	timer      *timer
@@ -27,13 +38,28 @@ func newHub(timer *timer) *hub {
 func (h *hub) run() {
 	for {
 		select {
-		case update := <-h.timer.updates:
+		case timerUpdate := <-h.timer.updates:
+            update := update{
+                UpdateType: "timer",
+                Name: timerUpdate.Name,
+                Args: timerUpdate.Args,
+            }
 			h.broadcast(update)
 		case command := <-h.commands:
 			h.timer.commands <- command
 		case client := <-h.register:
+            update := update{
+                UpdateType: "hub",
+                Name: connect,
+            }
+            h.broadcast(update)
 			h.clients[client] = true
 		case client := <-h.unregister:
+            update := update{
+                UpdateType: "hub",
+                Name: disconnect,
+            }
+            h.broadcast(update)
 			delete(h.clients, client)
 		case <-h.done:
 			h.timer.Close()
@@ -44,7 +70,7 @@ func (h *hub) run() {
 	}
 }
 
-func (h *hub) broadcast(update timerUpdate) {
+func (h *hub) broadcast(update update) {
 	for client := range h.clients {
 		client.send <- update
 	}

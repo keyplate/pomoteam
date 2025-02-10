@@ -29,7 +29,7 @@ var upgrader = websocket.Upgrader{
 type Client struct {
 	hub  *hub
 	conn *websocket.Conn
-	send chan timerUpdate
+	send chan update
 }
 
 func ServeWs(hs *HubService, w http.ResponseWriter, r *http.Request) {
@@ -51,7 +51,7 @@ func ServeWs(hs *HubService, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client := &Client{hub: hub, conn: conn, send: make(chan timerUpdate)}
+	client := &Client{hub: hub, conn: conn, send: make(chan update)}
 	hub.register <- client
 
 	go client.read()
