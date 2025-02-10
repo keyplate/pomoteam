@@ -44,19 +44,19 @@ func (h *hub) run() {
 	for {
 		select {
 		case timerUpdate := <-h.timer.updates:
-            h.sendUpdate(timerUpdate)
+			h.sendUpdate(timerUpdate)
 
 		case command := <-h.commands:
 			h.timer.commands <- command
 
 		case client := <-h.register:
-            h.registerClient(client)
+			h.registerClient(client)
 
 		case client := <-h.unregister:
-            h.unregisterClient(client)
+			h.unregisterClient(client)
 
 		case <-h.done:
-            h.closeHub()
+			h.closeHub()
 		}
 	}
 }
@@ -71,29 +71,29 @@ func (h *hub) sendUpdate(timerUpdate timerUpdate) {
 }
 
 func (h *hub) registerClient(client *Client) {
-    client.send <- h.state() 
-    update := update{
-        UpdateType: "hub",
-        Name:       connect,
-    }
-    h.broadcast(update)
-    h.clients[client] = true
+	client.send <- h.state()
+	update := update{
+		UpdateType: "hub",
+		Name:       connect,
+	}
+	h.broadcast(update)
+	h.clients[client] = true
 }
 
 func (h *hub) unregisterClient(client *Client) {
-    update := update{
-        UpdateType: "hub",
-        Name:       disconnect,
-    }
-    h.broadcast(update)
-    delete(h.clients, client)
+	update := update{
+		UpdateType: "hub",
+		Name:       disconnect,
+	}
+	h.broadcast(update)
+	delete(h.clients, client)
 }
 
 func (h *hub) closeHub() {
-    h.timer.Close()
-    close(h.commands)
-    close(h.register)
-    close(h.unregister)
+	h.timer.Close()
+	close(h.commands)
+	close(h.register)
+	close(h.unregister)
 }
 
 func (h *hub) broadcast(update update) {
