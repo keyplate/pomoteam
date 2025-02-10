@@ -1,5 +1,5 @@
-//This package represents a concurrent timer for the flow-time techenque (which is a bit more agile version of pomodoro).
-//Timer is operated by using commands. Timer publishes updates notifying users about its state changes.
+// This package represents a concurrent timer for the flow-time techenque (which is a bit more agile version of pomodoro).
+// Timer is operated by using commands. Timer publishes updates notifying users about its state changes.
 package timer
 
 import (
@@ -19,12 +19,13 @@ const (
 	durationAdjusted = "DURATION_ADJUSTED"
 	closed           = "CLOSED"
 	resumed          = "RESUMED"
+	sessionUpdate    = "SESSION_UPDATE"
 	//commands
 	start  = "START"
 	stop   = "STOP"
 	resume = "RESUME"
 	adjust = "ADJUST"
-    //session types
+	//session types
 	sessionFocus = "FOCUS"
 	sessionBreak = "BREAK"
 )
@@ -74,7 +75,7 @@ func (t *timer) start() {
 		return
 	}
 
-    //duration is evaluated based on the current sessionType
+	//duration is evaluated based on the current sessionType
 	t.timeLeft = int64(t.focusDuration)
 	if t.sessionType == sessionBreak {
 		t.timeLeft = int64(t.breakDuration)
@@ -99,14 +100,14 @@ func (t *timer) start() {
 			}
 		}
 
-        //every successful timer run switches sessionType to the opposite
+		//every successful timer run switches sessionType to the opposite
 		t.switchSession()
 		t.updates <- timerUpdate{Name: timeOut}
 	}
 	go countdown()
 }
 
-//tick represents a logical tick of the timer and an actual passage of 1s. 
+// tick represents a logical tick of the timer and an actual passage of 1s.
 func (t *timer) tick() {
 	atomic.AddInt64(&t.timeLeft, -1)
 
@@ -126,6 +127,12 @@ func (t *timer) tick() {
 }
 
 func (t *timer) switchSession() {
+	defer func() {
+		t.updates <- timerUpdate{
+			Name: sessionUpdate,
+			Args: map[string]string{"sessionType": t.sessionType},
+		}
+	}()
 	if t.sessionType == sessionBreak {
 		t.sessionType = sessionFocus
 		return
@@ -147,29 +154,29 @@ func (t *timer) resume() {
 	t.updates <- timerUpdate{Name: resumed}
 }
 
-//adjust alters timer duratin by given delta.
+// adjust alters timer duratin by given delta.
 func (t *timer) adjust(delta int) {
-    //If timer is running at the moment of adjustment, only currentTime is affected
-    //as it is assumed that user wants to alter only current session duration.
-    if t.isActive {
-	    atomic.AddInt64(&t.timeLeft, int64(delta))
-        t.updates <- timerUpdate{Name: durationAdjusted}
-        return
-    } 
+	//If timer is running at the moment of adjustment, only currentTime is affected
+	//as it is assumed that user wants to alter only current session duration.
+	if t.isActive {
+		atomic.AddInt64(&t.timeLeft, int64(delta))
+		t.updates <- timerUpdate{Name: durationAdjusted}
+		return
+	}
 
-    //If timer is not running the current session duration is affected.
-    if t.sessionType == sessionBreak {
-        t.breakDuration += delta
-    } else {
-        t.focusDuration += delta
-    }
+	//If timer is not running the current session duration is affected.
+	if t.sessionType == sessionBreak {
+		t.breakDuration += delta
+	} else {
+		t.focusDuration += delta
+	}
 
 	t.updates <- timerUpdate{
 		Name: durationAdjusted,
 		Args: map[string]string{
-			"timeLeft": strconv.Itoa(int(t.timeLeft)),
+			"timeLeft":      strconv.Itoa(int(t.timeLeft)),
 			"breakDuration": strconv.Itoa(t.breakDuration),
-            "focusDuration": strconv.Itoa(t.focusDuration),
+			"focusDuration": strconv.Itoa(t.focusDuration),
 		},
 	}
 }
