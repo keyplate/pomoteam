@@ -24,9 +24,7 @@ const (
 	stop   = "STOP"
 	resume = "RESUME"
 	adjust = "ADJUST"
-)
-
-const (
+    //session types
 	sessionFocus = "FOCUS"
 	sessionBreak = "BREAK"
 )
@@ -154,7 +152,7 @@ func (t *timer) adjust(delta int) {
     //If timer is running at the moment of adjustment, only currentTime is affected
     //as it is assumed that user wants to alter only current session duration.
     if t.isActive {
-	    t.timeLeft += int64(delta) 
+	    atomic.AddInt64(&t.timeLeft, int64(delta))
         t.updates <- timerUpdate{Name: durationAdjusted}
         return
     } 
