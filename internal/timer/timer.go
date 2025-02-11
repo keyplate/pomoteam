@@ -49,7 +49,7 @@ type timer struct {
 	breakDuration int
 	focusDuration int
 	timeLeft      int64
-	isActive      bool
+	isRunning     bool
 	sessionType   string
 }
 
@@ -62,7 +62,7 @@ func NewTimer(breakDuration, focusDuration int, sessionType string) *timer {
 
 		breakDuration: breakDuration,
 		focusDuration: focusDuration,
-		isActive:      false,
+		isRunning:     false,
 		sessionType:   sessionType,
 	}
 
@@ -71,7 +71,7 @@ func NewTimer(breakDuration, focusDuration int, sessionType string) *timer {
 }
 
 func (t *timer) start() {
-	if t.isActive {
+	if t.isRunning {
 		return
 	}
 
@@ -84,12 +84,11 @@ func (t *timer) start() {
 	countdown := func() {
 		defer func() {
 			t.ticker.Stop()
-			t.isActive = false
 		}()
 
-		t.isActive = true
+		t.isRunning = true
 		t.ticker.Reset(1 * time.Second)
-		t.updates <- timerUpdate{Name: started}
+		t.updates <- timerUpdate{Name: started, Args: map[string]string{"isRunning": strconv.FormatBool(t.isRunning)}}
 
 		for t.timeLeft > 0 {
 			select {
@@ -102,7 +101,8 @@ func (t *timer) start() {
 
 		//every successful timer run switches sessionType to the opposite
 		t.switchSession()
-		t.updates <- timerUpdate{Name: timeOut}
+		t.isRunning = false
+		t.updates <- timerUpdate{Name: timeOut, Args: map[string]string{"isRunning": strconv.FormatBool(t.isRunning)}}
 	}
 	go countdown()
 }
@@ -141,24 +141,24 @@ func (t *timer) switchSession() {
 }
 
 func (t *timer) stop() {
-	t.isActive = false
+	t.isRunning = false
 	t.ticker.Stop()
 
-	t.updates <- timerUpdate{Name: stopped}
+	t.updates <- timerUpdate{Name: stopped, Args: map[string]string{"isRunning": strconv.FormatBool(t.isRunning)}}
 }
 
 func (t *timer) resume() {
-	t.isActive = true
+	t.isRunning = true
 	t.ticker.Reset(1 * time.Second)
 
-	t.updates <- timerUpdate{Name: resumed}
+	t.updates <- timerUpdate{Name: resumed, Args: map[string]string{"isRunning": strconv.FormatBool(t.isRunning)}}
 }
 
 // adjust alters timer duratin by given delta.
 func (t *timer) adjust(delta int) {
 	//If timer is running at the moment of adjustment, only currentTime is affected
 	//as it is assumed that user wants to alter only current session duration.
-	if t.isActive {
+	if t.isRunning {
 		atomic.AddInt64(&t.timeLeft, int64(delta))
 		t.updates <- timerUpdate{Name: durationAdjusted}
 		return
