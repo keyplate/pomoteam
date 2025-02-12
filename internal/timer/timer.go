@@ -19,10 +19,12 @@ const (
 	durationAdjusted = "DURATION_ADJUSTED"
 	closed           = "CLOSED"
 	resumed          = "RESUMED"
+    paused          = "PAUSED"
 	sessionUpdate    = "SESSION_UPDATE"
 	//commands
 	start  = "START"
 	stop   = "STOP"
+    pause  = "PAUSE"
 	resume = "RESUME"
 	adjust = "ADJUST"
 	//session types
@@ -140,11 +142,11 @@ func (t *timer) switchSession() {
 	t.sessionType = sessionBreak
 }
 
-func (t *timer) stop() {
+func (t *timer) pause() {
 	t.isRunning = false
 	t.ticker.Stop()
 
-	t.updates <- timerUpdate{Name: stopped, Args: map[string]string{"isRunning": strconv.FormatBool(t.isRunning)}}
+	t.updates <- timerUpdate{Name: paused, Args: map[string]string{"isRunning": strconv.FormatBool(t.isRunning)}}
 }
 
 func (t *timer) resume() {
@@ -199,8 +201,8 @@ func (t *timer) parseCommand(command timerCommand) error {
 	switch command.Name {
 	case start:
 		t.start()
-	case stop:
-		t.stop()
+	case pause:
+		t.pause()
 	case resume:
 		t.resume()
 	case adjust:
