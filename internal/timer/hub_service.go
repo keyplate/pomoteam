@@ -22,7 +22,9 @@ func (h *HubService) create() uuid.UUID {
 	defer h.mu.Unlock()
 
 	//todo: allow timer creation from user
-	timer := NewTimer(5, 25, sessionFocus)
+    fiveMinutes := 5 * 60
+    twentyFiveMinutes := 25 * 60
+	timer := NewTimer(fiveMinutes, twentyFiveMinutes, sessionFocus)
 	hub := newHub(timer)
 	h.hubPool[hub.id] = hub
 	go hub.run()
