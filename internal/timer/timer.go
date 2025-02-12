@@ -3,7 +3,9 @@
 package timer
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"log"
 	"strconv"
 	"sync/atomic"
@@ -11,25 +13,31 @@ import (
 )
 
 const (
-	//updates
-	timeUpdate       = "TIME_UPDATE"
-	timeOut          = "TIME_OUT"
-	started          = "STARTED"
-	stopped          = "STOPPED"
-	durationAdjusted = "DURATION_ADJUSTED"
-	closed           = "CLOSED"
-	resumed          = "RESUMED"
+    // Update event types
+    timeUpdate       = "TIME_UPDATE"
+    timeOut          = "TIME_OUT"
+    started          = "STARTED"
+    stopped          = "STOPPED"
+    durationAdjusted = "DURATION_ADJUSTED"
+    closed          = "CLOSED"
+    resumed         = "RESUMED"
     paused          = "PAUSED"
-	sessionUpdate    = "SESSION_UPDATE"
-	//commands
-	start  = "START"
-	stop   = "STOP"
+    sessionUpdate   = "SESSION_UPDATE"
+)
+
+const (
+    // Command types
+    start  = "START"
+    stop   = "STOP"
     pause  = "PAUSE"
-	resume = "RESUME"
-	adjust = "ADJUST"
-	//session types
-	sessionFocus = "FOCUS"
-	sessionBreak = "BREAK"
+    resume = "RESUME"
+    adjust = "ADJUST"
+)
+
+const (
+    // Session types
+    sessionFocus = "FOCUS"
+    sessionBreak = "BREAK"
 )
 
 type timerCommand struct {
@@ -42,145 +50,51 @@ type timerUpdate struct {
 	Args map[string]string `json:"args"`
 }
 
+// Timer represents a pomodoro-style timer that alternates between focus and break sessions
 type timer struct {
-	ticker   *time.Ticker
-	updates  chan timerUpdate
-	commands chan timerCommand
-	done     chan bool
+    // Channels for communication
+    ticker   *time.Ticker
+    updates  chan timerUpdate
+    commands chan timerCommand
+    
+    // Session control
+    sessionDone     chan struct{}
+    
+    // Lifecycle control
+    cancel     context.CancelFunc
+    ctx       context.Context
 
-	breakDuration int
-	focusDuration int
-	timeLeft      int64
-	isRunning     bool
-	sessionType   string
+    // Session configuration
+    breakDuration int
+    focusDuration int
+
+    // Current state
+    timeLeft       int64
+    isRunning      bool
+    isSessionEnded bool
+    sessionType    string
 }
 
-func NewTimer(breakDuration, focusDuration int, sessionType string) *timer {
-	timer := &timer{
-		ticker:   time.NewTicker(1 * time.Second),
-		done:     make(chan bool),
-		commands: make(chan timerCommand),
-		updates:  make(chan timerUpdate),
+func NewTimer(ctx context.Context, breakDuration, focusDuration int, sessionType string) *timer {
+    ctx, cancel := context.WithCancel(ctx)
 
-		breakDuration: breakDuration,
-		focusDuration: focusDuration,
-		isRunning:     false,
-		sessionType:   sessionType,
+	timer := &timer{
+        ticker:   time.NewTicker(1 * time.Second),
+        updates:  make(chan timerUpdate),
+        commands: make(chan timerCommand),
+        
+        ctx:    ctx,
+        cancel: cancel,
+
+        breakDuration:  breakDuration,
+        focusDuration:  focusDuration,
+        isRunning:      false,
+        isSessionEnded: true,
+        sessionType:    sessionType,
 	}
 
 	go timer.listenCommands()
 	return timer
-}
-
-func (t *timer) start() {
-	if t.isRunning {
-		return
-	}
-
-	//duration is evaluated based on the current sessionType
-	t.timeLeft = int64(t.focusDuration)
-	if t.sessionType == sessionBreak {
-		t.timeLeft = int64(t.breakDuration)
-	}
-
-	countdown := func() {
-		defer func() {
-			t.ticker.Stop()
-		}()
-
-		t.isRunning = true
-		t.ticker.Reset(1 * time.Second)
-		t.updates <- timerUpdate{Name: started, Args: map[string]string{"isRunning": strconv.FormatBool(t.isRunning)}}
-
-		for t.timeLeft > 0 {
-			select {
-			case <-t.ticker.C:
-				t.tick()
-			case <-t.done:
-				return
-			}
-		}
-
-		//every successful timer run switches sessionType to the opposite
-		t.switchSession()
-		t.isRunning = false
-		t.updates <- timerUpdate{Name: timeOut, Args: map[string]string{"isRunning": strconv.FormatBool(t.isRunning)}}
-	}
-	go countdown()
-}
-
-// tick represents a logical tick of the timer and an actual passage of 1s.
-func (t *timer) tick() {
-	atomic.AddInt64(&t.timeLeft, -1)
-
-	timeLeft := int(t.timeLeft)
-	duration := t.focusDuration
-	if t.sessionType == sessionBreak {
-		duration = t.breakDuration
-	}
-
-	t.updates <- timerUpdate{
-		Name: timeUpdate,
-		Args: map[string]string{
-			"timeLeft": strconv.Itoa(timeLeft),
-			"duration": strconv.Itoa(duration),
-		},
-	}
-}
-
-func (t *timer) switchSession() {
-	defer func() {
-		t.updates <- timerUpdate{
-			Name: sessionUpdate,
-			Args: map[string]string{"sessionType": t.sessionType},
-		}
-	}()
-	if t.sessionType == sessionBreak {
-		t.sessionType = sessionFocus
-		return
-	}
-	t.sessionType = sessionBreak
-}
-
-func (t *timer) pause() {
-	t.isRunning = false
-	t.ticker.Stop()
-
-	t.updates <- timerUpdate{Name: paused, Args: map[string]string{"isRunning": strconv.FormatBool(t.isRunning)}}
-}
-
-func (t *timer) resume() {
-	t.isRunning = true
-	t.ticker.Reset(1 * time.Second)
-
-	t.updates <- timerUpdate{Name: resumed, Args: map[string]string{"isRunning": strconv.FormatBool(t.isRunning)}}
-}
-
-// adjust alters timer duratin by given delta.
-func (t *timer) adjust(delta int) {
-	//If timer is running at the moment of adjustment, only currentTime is affected
-	//as it is assumed that user wants to alter only current session duration.
-	if t.isRunning {
-		atomic.AddInt64(&t.timeLeft, int64(delta))
-		t.updates <- timerUpdate{Name: durationAdjusted}
-		return
-	}
-
-	//If timer is not running the current session duration is affected.
-	if t.sessionType == sessionBreak {
-		t.breakDuration += delta
-	} else {
-		t.focusDuration += delta
-	}
-
-	t.updates <- timerUpdate{
-		Name: durationAdjusted,
-		Args: map[string]string{
-			"timeLeft":      strconv.Itoa(int(t.timeLeft)),
-			"breakDuration": strconv.Itoa(t.breakDuration),
-			"focusDuration": strconv.Itoa(t.focusDuration),
-		},
-	}
 }
 
 func (t *timer) listenCommands() {
@@ -191,7 +105,7 @@ func (t *timer) listenCommands() {
 			if err != nil {
 				log.Print(err)
 			}
-		case <-t.done:
+		case <-t.ctx.Done():
 			return
 		}
 	}
@@ -212,15 +126,154 @@ func (t *timer) parseCommand(command timerCommand) error {
 		}
 		t.adjust(duration)
 	default:
-		return errors.New("timer parseCommand: unknown command")
+		return fmt.Errorf("unknown command: %v", command)
 	}
 	return nil
 }
 
+func (t *timer) start() {
+    if t.isRunning {
+        return
+    }
+
+    // Stop any existing countdown
+    if t.sessionDone != nil {
+        close(t.sessionDone)
+    }
+    t.sessionDone = make(chan struct{})
+
+    // Set initial duration based on session type
+    t.timeLeft = int64(t.getDurationForSession())
+
+    t.ticker = time.NewTicker(1 * time.Second)
+    go t.countdown()
+}
+
+func (t *timer) getDurationForSession() int {
+    if t.sessionType == sessionBreak {
+        return t.breakDuration
+    }
+    return t.focusDuration
+}
+
+func (t *timer) countdown() {
+    defer t.ticker.Stop()
+
+    t.isRunning = true
+    t.sendUpdate(started, map[string]string{
+        "isRunning": strconv.FormatBool(t.isRunning),
+    })
+
+    for t.timeLeft > 0 {
+        select {
+        case <-t.ticker.C:
+            t.tick()
+        case <-t.sessionDone:
+            return
+        case <- t.ctx.Done():
+            return
+        }
+    }
+
+    t.switchSession()
+    t.isRunning = false
+    t.sendUpdate(timeOut, map[string]string{
+        "isRunning": strconv.FormatBool(t.isRunning),
+    })
+}
+
+// tick represents a logical tick of the timer and an actual passage of 1s.
+func (t *timer) tick() {
+    atomic.AddInt64(&t.timeLeft, -1)
+
+    timeLeft := int(t.timeLeft)
+    duration := t.getDurationForSession()
+
+    t.sendUpdate(timeUpdate, map[string]string{
+        "timeLeft": strconv.Itoa(timeLeft),
+        "duration": strconv.Itoa(duration),
+    })
+}
+
+func (t *timer) pause() {
+    if !t.isRunning {
+        return
+    }
+    t.isRunning = false
+    t.ticker.Stop()
+
+    t.sendUpdate(paused, map[string]string{
+        "isRunning": strconv.FormatBool(t.isRunning),
+    })
+}
+
+func (t *timer) resume() {
+    if t.isRunning {
+        return
+    }
+    t.isRunning = true
+    t.ticker.Reset(1 * time.Second)
+
+    t.sendUpdate(resumed, map[string]string{
+        "isRunning": strconv.FormatBool(t.isRunning),
+    })
+}
+
+func (t *timer) switchSession() {
+    if t.sessionType == sessionBreak {
+        t.sessionType = sessionFocus
+    } else {
+        t.sessionType = sessionBreak
+    }
+
+    t.sendUpdate(sessionUpdate, map[string]string{
+        "sessionType": t.sessionType,
+    })
+}
+
+// adjust alters timer duratin by given delta.
+func (t *timer) adjust(delta int) {
+    if t.isRunning {
+        atomic.AddInt64(&t.timeLeft, int64(delta))
+        t.sendUpdate(durationAdjusted, nil)
+        return
+    }
+
+    if t.sessionType == sessionBreak {
+        t.breakDuration += delta
+    } else {
+        t.focusDuration += delta
+    }
+
+    t.sendUpdate(durationAdjusted, map[string]string{
+        "timeLeft":      strconv.Itoa(int(t.timeLeft)),
+        "breakDuration": strconv.Itoa(t.breakDuration),
+        "focusDuration": strconv.Itoa(t.focusDuration),
+    })
+}
+
+func (t *timer) sendUpdate(name string, args map[string]string) {
+    t.updates <- timerUpdate{
+        Name: name,
+        Args: args,
+    }
+}
+
 func (t *timer) Close() {
-	t.updates <- timerUpdate{Name: closed}
-	close(t.done)
-	close(t.updates)
-	close(t.commands)
-	t.ticker.Stop()
+    t.sendUpdate(closed, nil)
+    
+    // Cancel context to stop all goroutines
+    t.cancel()
+    
+    // Stop the timer
+    t.ticker.Stop()
+    
+    // Stop current session if running
+    if t.sessionDone != nil {
+        close(t.sessionDone)
+    }
+    
+    // Close channels in correct order
+    close(t.updates)
+    close(t.commands)
 }

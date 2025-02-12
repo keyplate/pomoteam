@@ -1,9 +1,11 @@
 package timer
 
 import (
+	"context"
 	"errors"
-	"github.com/google/uuid"
 	"sync"
+
+	"github.com/google/uuid"
 )
 
 type HubService struct {
@@ -24,7 +26,7 @@ func (h *HubService) create() uuid.UUID {
 	//todo: allow timer creation from user
     fiveMinutes := 5 * 60
     twentyFiveMinutes := 25 * 60
-	timer := NewTimer(fiveMinutes, twentyFiveMinutes, sessionFocus)
+	timer := NewTimer(context.Background(), fiveMinutes, twentyFiveMinutes, sessionFocus)
 	hub := newHub(timer)
 	h.hubPool[hub.id] = hub
 	go hub.run()
