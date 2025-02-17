@@ -238,7 +238,7 @@ func (t *timer) switchSession() {
 
 // adjust alters timer duratin by given delta.
 func (t *timer) adjust(delta int) {
-	if t.isRunning {
+	if t.isRunning || !t.isSessionEnded {
 		atomic.AddInt64(&t.timeLeft, int64(delta))
 		t.sendUpdate(durationAdjusted, nil)
 		return
