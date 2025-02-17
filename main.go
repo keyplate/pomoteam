@@ -18,8 +18,11 @@ func main() {
 	ts := timer.NewHubService()
 
 	serveMux.HandleFunc("/api/hub", internal.CorsMiddleware(func(w http.ResponseWriter, r *http.Request) {
-		timer.HandleCreateTimer(ts, w, r)
+		timer.HandleCreateHub(ts, w, r)
 	}))
+    serveMux.HandleFunc("/api/hub/{hubId}", internal.CorsMiddleware(func(w http.ResponseWriter, r *http.Request) {
+        timer.HandleCheckHub(ts, w, r)
+    }))
 	serveMux.HandleFunc("GET /ws/{hubId}", func(w http.ResponseWriter, r *http.Request) {
 		timer.ServeWs(ts, w, r)
 	})
