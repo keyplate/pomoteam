@@ -164,6 +164,7 @@ func (t *timer) countdown() {
 	t.sendUpdate(started, map[string]string{
 		"isRunning":      strconv.FormatBool(t.isRunning),
 		"isSessionEnded": strconv.FormatBool(t.isSessionEnded),
+        "timeLeft":       strconv.Itoa(int(t.timeLeft)),
 	})
 
 	for t.timeLeft > 0 {
