@@ -200,7 +200,7 @@ func (t *timer) tick() {
 }
 
 func (t *timer) pause() {
-	if !t.isRunning {
+	if !t.isRunning || t.isSessionEnded {
 		return
 	}
 	t.isRunning = false
@@ -212,7 +212,7 @@ func (t *timer) pause() {
 }
 
 func (t *timer) resume() {
-	if t.isRunning {
+	if t.isRunning || t.isSessionEnded {
 		return
 	}
 	t.isRunning = true
