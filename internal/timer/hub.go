@@ -107,10 +107,11 @@ func (h *hub) state() update {
 		UpdateType: "hub",
 		Name:       state,
 		Args: map[string]string{
-			"focusDuration": strconv.Itoa(h.timer.focusDuration),
-			"breakDuration": strconv.Itoa(h.timer.breakDuration),
-			"sessionType":   h.timer.sessionType,
-			"isRunning":     strconv.FormatBool(h.timer.isRunning),
+			"focusDuration":  strconv.Itoa(h.timer.focusDuration),
+			"breakDuration":  strconv.Itoa(h.timer.breakDuration),
+			"sessionType":    h.timer.sessionType,
+			"isRunning":      strconv.FormatBool(h.timer.isRunning),
+			"isSessionEnded": strconv.FormatBool(h.timer.isSessionEnded),
 		},
 	}
 }
