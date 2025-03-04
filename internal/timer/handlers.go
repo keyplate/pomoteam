@@ -44,22 +44,22 @@ func HandleCreateHub(hs *HubService, w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleCheckHub(hs *HubService, w http.ResponseWriter, r *http.Request) {
-    if r.Method != http.MethodGet {
-        http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-        return
-    }
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 
-    id, err := uuid.Parse(r.PathValue("hubId"))
-    if err != nil {
-        http.Error(w, "Bad request", http.StatusBadRequest)
-        return
-    }
+	id, err := uuid.Parse(r.PathValue("hubId"))
+	if err != nil {
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return
+	}
 
-    _, err = hs.get(id)
-    if err != nil {
-        http.Error(w, "Not found", http.StatusNotFound)
-        return
-    }
+	_, err = hs.get(id)
+	if err != nil {
+		http.Error(w, "Not found", http.StatusNotFound)
+		return
+	}
 
-    w.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusOK)
 }
