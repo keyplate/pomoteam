@@ -240,7 +240,9 @@ func (t *timer) switchSession() {
 func (t *timer) adjust(delta int) {
 	if t.isRunning || !t.isSessionEnded {
 		atomic.AddInt64(&t.timeLeft, int64(delta))
-		t.sendUpdate(durationAdjusted, nil)
+		t.sendUpdate(durationAdjusted, map[string]string{
+			"timeLeft": strconv.Itoa(int(t.timeLeft)),
+		})
 		return
 	}
 
