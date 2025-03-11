@@ -82,7 +82,6 @@ func (c *Client) write() {
 	defer func() {
 		c.conn.Close()
 		ticker.Stop()
-		c.hub.unregister <- c
 	}()
 
 	for {

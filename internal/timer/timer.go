@@ -279,17 +279,17 @@ func (t *timer) adjustSessionDuration(delta int) {
 }
 
 func (t *timer) sendUpdate(name string, args map[string]string) {
-	slog.Debug(fmt.Sprintf("timer update: name: %s, args: %v", name, args))
-	t.updates <- timerUpdate{
-		Name: name,
-		Args: args,
+	slog.Debug(fmt.Sprintf("timer: update pending - name: %s, args: %v", name, args))
+
+	select {
+	case <-t.ctx.Done():
+		return
+	case t.updates <- timerUpdate{Name: name, Args: args}:
+		slog.Debug(fmt.Sprintf("timer: update sent - name: %s, args: %v", name, args))
 	}
 }
 
 func (t *timer) Close() {
-	t.sendUpdate(closed, nil)
-
-	// Cancel context to stop all goroutines
 	t.cancel()
 
 	// Stop the timer
@@ -301,6 +301,6 @@ func (t *timer) Close() {
 	}
 
 	// Close channels in correct order
-	close(t.updates)
 	close(t.commands)
+	close(t.updates)
 }

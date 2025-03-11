@@ -3,19 +3,35 @@ package timer
 import (
 	"context"
 	"errors"
+	"fmt"
+	"log/slog"
 	"sync"
 
 	"github.com/google/uuid"
 )
 
 type HubService struct {
-	hubPool map[uuid.UUID]*hub
-	mu      sync.RWMutex
+	hubPool    map[uuid.UUID]*hub
+	mu         sync.RWMutex
+	unregister chan uuid.UUID
 }
 
 func NewHubService() *HubService {
-	return &HubService{
-		hubPool: make(map[uuid.UUID]*hub),
+	hs := &HubService{
+		hubPool:    make(map[uuid.UUID]*hub),
+		unregister: make(chan uuid.UUID),
+	}
+	go hs.listenUnregister()
+	return hs
+}
+
+func (h *HubService) listenUnregister() {
+	for {
+		id := <-h.unregister
+		err := h.delete(id)
+		if err != nil {
+			slog.Warn(fmt.Sprintf("hubService: %v", err))
+		}
 	}
 }
 
@@ -27,7 +43,7 @@ func (h *HubService) create() uuid.UUID {
 	fiveMinutes := 5 * 60
 	twentyFiveMinutes := 25 * 60
 	timer := NewTimer(context.Background(), fiveMinutes, twentyFiveMinutes, sessionFocus)
-	hub := newHub(timer)
+	hub := newHub(timer, h.unregister)
 	h.hubPool[hub.id] = hub
 	go hub.run()
 	return hub.id
@@ -37,11 +53,10 @@ func (h *HubService) delete(id uuid.UUID) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	hub, ok := h.hubPool[id]
+	_, ok := h.hubPool[id]
 	if !ok {
 		return errors.New("hub not found")
 	}
-	close(hub.done)
 	delete(h.hubPool, id)
 	return nil
 }
