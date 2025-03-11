@@ -2,6 +2,7 @@ package timer
 
 import (
 	"strconv"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -87,6 +88,9 @@ func (h *hub) unregisterClient(client *Client) {
 	}
 	h.broadcast(update)
 	delete(h.clients, client)
+	if len(h.clients) == 0 {
+		h.scheduleClose()
+	}
 }
 
 func (h *hub) closeHub() {
@@ -114,4 +118,14 @@ func (h *hub) state() update {
 			"isSessionEnded": strconv.FormatBool(h.timer.isSessionEnded),
 		},
 	}
+}
+
+func (h *hub) scheduleClose() {
+	timer := time.NewTimer(120 * time.Second)
+	<-timer.C
+
+	if len(h.clients) != 0 {
+		return
+	}
+	h.closeHub()
 }
