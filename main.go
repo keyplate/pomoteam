@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 
@@ -13,6 +13,12 @@ import (
 func main() {
 	godotenv.Load()
 	port := os.Getenv("SERVER_PORT")
+
+	handlerOptions := &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, handlerOptions))
+	slog.SetDefault(logger)
 
 	serveMux := http.NewServeMux()
 	ts := timer.NewHubService()
@@ -30,6 +36,6 @@ func main() {
 	server := http.Server{Handler: serveMux, Addr: port}
 	err := server.ListenAndServe()
 	if err != nil {
-		log.Fatalf("ListenAndServe: %v", err)
+		slog.Error(err.Error())
 	}
 }

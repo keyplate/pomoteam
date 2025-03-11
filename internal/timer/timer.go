@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"log/slog"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -278,6 +279,7 @@ func (t *timer) adjustSessionDuration(delta int) {
 }
 
 func (t *timer) sendUpdate(name string, args map[string]string) {
+	slog.Debug(fmt.Sprintf("timer update: name: %s, args: %v", name, args))
 	t.updates <- timerUpdate{
 		Name: name,
 		Args: args,

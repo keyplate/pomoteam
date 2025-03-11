@@ -1,6 +1,7 @@
 package timer
 
 import (
+	"log/slog"
 	"strconv"
 	"time"
 
@@ -79,6 +80,7 @@ func (h *hub) registerClient(client *Client) {
 	}
 	h.broadcast(update)
 	h.clients[client] = true
+	slog.Info("hub %d client registered", h.id)
 }
 
 func (h *hub) unregisterClient(client *Client) {
@@ -88,6 +90,8 @@ func (h *hub) unregisterClient(client *Client) {
 	}
 	h.broadcast(update)
 	delete(h.clients, client)
+	slog.Info("hub %d client unregistered", h.id)
+
 	if len(h.clients) == 0 {
 		h.scheduleClose()
 	}
@@ -98,6 +102,7 @@ func (h *hub) closeHub() {
 	close(h.commands)
 	close(h.register)
 	close(h.unregister)
+	slog.Info("hub %d closed", h.id)
 }
 
 func (h *hub) broadcast(update update) {
@@ -121,7 +126,8 @@ func (h *hub) state() update {
 }
 
 func (h *hub) scheduleClose() {
-	timer := time.NewTimer(120 * time.Second)
+	slog.Info("hub %d closure scheduled", h.id)
+	timer := time.NewTimer(10 * time.Second)
 	<-timer.C
 
 	if len(h.clients) != 0 {
