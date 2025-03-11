@@ -239,17 +239,35 @@ func (t *timer) switchSession() {
 // adjust alters timer duratin by given delta.
 func (t *timer) adjust(delta int) {
 	if t.isRunning || !t.isSessionEnded {
-		atomic.AddInt64(&t.timeLeft, int64(delta))
-		t.sendUpdate(durationAdjusted, map[string]string{
-			"timeLeft": strconv.Itoa(int(t.timeLeft)),
-		})
+		t.adjustTimeLeft(delta)
 		return
 	}
+	t.adjustSessionDuration(delta)
+}
 
-	if t.sessionType == sessionBreak {
-		t.breakDuration += delta
+func (t *timer) adjustTimeLeft(delta int) {
+	if t.timeLeft+int64(delta) <= 0 {
+		atomic.StoreInt64(&t.timeLeft, 0)
 	} else {
-		t.focusDuration += delta
+		atomic.AddInt64(&t.timeLeft, int64(delta))
+	}
+	t.sendUpdate(durationAdjusted, map[string]string{
+		"timeLeft": strconv.Itoa(int(t.timeLeft)),
+	})
+}
+
+func (t *timer) adjustSessionDuration(delta int) {
+	var session *int
+	if t.sessionType == sessionBreak {
+		session = &t.breakDuration
+	} else {
+		session = &t.focusDuration
+	}
+
+	if *session+delta <= 0 {
+		*session = 300
+	} else {
+		*session += delta
 	}
 
 	t.sendUpdate(durationAdjusted, map[string]string{
