@@ -252,8 +252,11 @@ func (t *timer) adjustTimeLeft(delta int) {
 	} else {
 		atomic.AddInt64(&t.timeLeft, int64(delta))
 	}
+
 	t.sendUpdate(durationAdjusted, map[string]string{
-		"timeLeft": strconv.Itoa(int(t.timeLeft)),
+		"timeLeft":      strconv.Itoa(int(t.timeLeft)),
+		"breakDuration": strconv.Itoa(t.breakDuration),
+		"focusDuration": strconv.Itoa(t.focusDuration),
 	})
 }
 
