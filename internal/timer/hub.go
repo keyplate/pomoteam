@@ -49,19 +49,19 @@ func (h *hub) run() {
 	for {
 		select {
 		case timerUpdate := <-h.timer.updates:
-			slog.Info(fmt.Sprintf("hub: id %v - received update", h.id))
+			slog.Debug(fmt.Sprintf("hub: id %v - received update", h.id))
 			h.sendUpdate(timerUpdate)
 
 		case command := <-h.commands:
-			slog.Info(fmt.Sprintf("hub: id %v - received command", h.id))
+			slog.Debug(fmt.Sprintf("hub: id %v - received command", h.id))
 			h.timer.commands <- command
 
 		case client := <-h.register:
-			slog.Info(fmt.Sprintf("hub: id %v - received registeration", h.id))
+			slog.Debug(fmt.Sprintf("hub: id %v - received registeration", h.id))
 			h.registerClient(client)
 
 		case client := <-h.unregister:
-			slog.Info(fmt.Sprintf("hub: id %v - received unregistration", h.id))
+			slog.Debug(fmt.Sprintf("hub: id %v - received unregistration", h.id))
 			h.unregisterClient(client)
 
 		case <-h.done:
@@ -145,7 +145,7 @@ func (h *hub) state() update {
 func (h *hub) scheduleClose() {
 	slog.Info(fmt.Sprintf("hub: id %v - closure scheduled", h.id))
 
-	timer := time.NewTimer(10 * time.Second)
+	timer := time.NewTimer(120 * time.Second)
 	<-timer.C
 
 	if len(h.clients) != 0 {

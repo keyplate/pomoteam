@@ -15,7 +15,7 @@ func main() {
 	port := os.Getenv("SERVER_PORT")
 
 	handlerOptions := &slog.HandlerOptions{
-		Level: slog.LevelDebug,
+		Level: slog.LevelInfo,
 	}
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, handlerOptions))
 	slog.SetDefault(logger)
