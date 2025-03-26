@@ -24,6 +24,7 @@ const (
 	resumed          = "RESUMED"
 	paused           = "PAUSED"
 	sessionUpdate    = "SESSION_UPDATE"
+	timerReset       = "TIMER_RESET"
 )
 
 const (
@@ -33,6 +34,7 @@ const (
 	pause  = "PAUSE"
 	resume = "RESUME"
 	adjust = "ADJUST"
+	reset  = "RESET"
 )
 
 const (
@@ -120,6 +122,8 @@ func (t *timer) parseCommand(command timerCommand) error {
 		t.pause()
 	case resume:
 		t.resume()
+	case reset:
+		t.reset()
 	case adjust:
 		duration, err := strconv.Atoi(command.Arg)
 		if err != nil {
@@ -210,6 +214,21 @@ func (t *timer) pause() {
 
 	t.sendUpdate(paused, map[string]string{
 		"isRunning": strconv.FormatBool(t.isRunning),
+	})
+}
+
+func (t *timer) reset() {
+	if !t.isRunning || t.isSessionEnded {
+		return
+	}
+
+	t.isRunning = false
+	t.isSessionEnded = true
+	t.ticker.Stop()
+
+	t.sendUpdate(timerReset, map[string]string{
+		"isRunning":      strconv.FormatBool(t.isRunning),
+		"isSessionEnded": strconv.FormatBool(t.isSessionEnded),
 	})
 }
 
