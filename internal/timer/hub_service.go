@@ -1,7 +1,6 @@
 package timer
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -11,28 +10,15 @@ import (
 )
 
 type HubService struct {
-	hubPool    map[uuid.UUID]*hub
-	mu         sync.RWMutex
-	unregister chan uuid.UUID
+	hubPool map[uuid.UUID]*hub
+	mu      sync.RWMutex
 }
 
 func NewHubService() *HubService {
 	hs := &HubService{
-		hubPool:    make(map[uuid.UUID]*hub),
-		unregister: make(chan uuid.UUID),
+		hubPool: make(map[uuid.UUID]*hub),
 	}
-	go hs.listenUnregister()
 	return hs
-}
-
-func (h *HubService) listenUnregister() {
-	for {
-		id := <-h.unregister
-		err := h.delete(id)
-		if err != nil {
-			slog.Warn(fmt.Sprintf("hubService: %v", err))
-		}
-	}
 }
 
 func (h *HubService) create() uuid.UUID {
@@ -40,13 +26,17 @@ func (h *HubService) create() uuid.UUID {
 	defer h.mu.Unlock()
 
 	//todo: allow timer creation from user
-	fiveMinutes := 5 * 60
-	twentyFiveMinutes := 25 * 60
-	timer := NewTimer(context.Background(), fiveMinutes, twentyFiveMinutes, sessionFocus)
-	hub := newHub(timer, h.unregister)
+	hub := newHub(h.unregister)
 	h.hubPool[hub.id] = hub
 	go hub.run()
 	return hub.id
+}
+
+func (h *HubService) unregister(id uuid.UUID) {
+	err := h.delete(id)
+	if err != nil {
+		slog.Warn(fmt.Sprintf("hubService: %v", err))
+	}
 }
 
 func (h *HubService) delete(id uuid.UUID) error {

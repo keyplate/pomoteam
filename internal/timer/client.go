@@ -29,7 +29,7 @@ var upgrader = websocket.Upgrader{
 type Client struct {
 	hub  *hub
 	conn *websocket.Conn
-	send chan update
+	send chan Update
 }
 
 func ServeWs(hs *HubService, w http.ResponseWriter, r *http.Request) {
@@ -51,7 +51,7 @@ func ServeWs(hs *HubService, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client := &Client{hub: hub, conn: conn, send: make(chan update)}
+	client := &Client{hub: hub, conn: conn, send: make(chan Update)}
 	hub.register <- client
 
 	go client.read()
@@ -67,7 +67,7 @@ func (c *Client) read() {
 	c.conn.SetReadDeadline(time.Now().Add(pongWait))
 	c.conn.SetPongHandler(func(string) error { c.conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
 	for {
-		var command timerCommand
+		var command Command
 		err := c.conn.ReadJSON(&command)
 		if err != nil {
 			log.Printf("error: %v", err)

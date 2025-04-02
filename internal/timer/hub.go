@@ -1,6 +1,8 @@
 package timer
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strconv"
@@ -10,51 +12,84 @@ import (
 )
 
 const (
+	// Update event types
+	timeUpdate       = "TIME_UPDATE"
+	timeOut          = "TIME_OUT"
+	started          = "STARTED"
+	stopped          = "STOPPED"
+	durationAdjusted = "DURATION_ADJUSTED"
+	closed           = "CLOSED"
+	resumed          = "RESUMED"
+	paused           = "PAUSED"
+	sessionUpdate    = "SESSION_UPDATE"
+	timerReset       = "TIMER_RESET"
+)
+
+const (
+	// Command types
+	start  = "START"
+	stop   = "STOP"
+	pause  = "PAUSE"
+	resume = "RESUME"
+	adjust = "ADJUST"
+	reset  = "RESET"
+)
+
+const (
 	connect    = "CONNECT"
 	disconnect = "DISCONNECT"
 	state      = "STATE"
 )
 
-type update struct {
-	UpdateType string            `json:"type"`
-	Name       string            `json:"name"`
-	Args       map[string]string `json:"args"`
+type Update struct {
+	Name string            `json:"name"`
+	Args map[string]string `json:"args,omitempty"`
+}
+
+type Command struct {
+	Name string            `jsong:"name"`
+	Args map[string]string `json:"args,omitempty"`
 }
 
 type hub struct {
 	id            uuid.UUID
 	timer         *timer
 	clients       map[*Client]bool
-	commands      chan timerCommand
+	commands      chan Command
+	updates       chan Update
 	register      chan *Client
 	unregister    chan *Client
-	unregisterHub chan uuid.UUID
-	done          chan struct{}
+	unregisterHub func(uuid.UUID)
+	ctx           context.Context
+	cancel        context.CancelFunc
 }
 
-func newHub(timer *timer, unregisterHub chan uuid.UUID) *hub {
+func newHub(unregisterHub func(uuid.UUID)) *hub {
+	ctx, cancel := context.WithCancel(context.Background())
+	updates := make(chan Update)
+
 	return &hub{
 		id:            uuid.New(),
-		timer:         timer,
+		timer:         NewTimer(ctx, updates),
 		clients:       map[*Client]bool{},
-		commands:      make(chan timerCommand),
+		commands:      make(chan Command),
+		updates:       updates,
 		register:      make(chan *Client),
 		unregister:    make(chan *Client),
-		done:          make(chan struct{}),
+		ctx:           ctx,
+		cancel:        cancel,
 		unregisterHub: unregisterHub,
 	}
 }
 
 func (h *hub) run() {
-	for {
-		select {
-		case timerUpdate := <-h.timer.updates:
-			slog.Debug(fmt.Sprintf("hub: id %v - received update", h.id))
-			h.sendUpdate(timerUpdate)
+    go h.listenCommands()
 
-		case command := <-h.commands:
-			slog.Debug(fmt.Sprintf("hub: id %v - received command", h.id))
-			h.timer.commands <- command
+    for {
+		select {
+		case upd := <-h.updates:
+			slog.Debug(fmt.Sprintf("hub: id %v - received update", h.id))
+			h.broadcast(upd)
 
 		case client := <-h.register:
 			slog.Debug(fmt.Sprintf("hub: id %v - received registeration", h.id))
@@ -64,31 +99,53 @@ func (h *hub) run() {
 			slog.Debug(fmt.Sprintf("hub: id %v - received unregistration", h.id))
 			h.unregisterClient(client)
 
-		case <-h.done:
+		case <-h.ctx.Done():
 			h.closeHub()
 			return
 		}
 	}
 }
 
-func (h *hub) sendUpdate(timerUpdate timerUpdate) {
-	slog.Debug(fmt.Sprintf("hub: id %v - sending update", h.id))
-
-	update := update{
-		UpdateType: "timer",
-		Name:       timerUpdate.Name,
-		Args:       timerUpdate.Args,
+func (h *hub) listenCommands() {
+	for {
+		select {
+		case command := <-h.commands:
+			err := h.handleCommand(command)
+			if err != nil {
+		    	slog.Info(fmt.Sprintf("hub: id %v - error during command processing %v", h.id, err))
+			}
+		case <-h.ctx.Done():
+			return
+		}
 	}
-	h.broadcast(update)
+}
 
-	slog.Debug(fmt.Sprintf("hub: id %v - update is sent", h.id))
+func (h *hub) handleCommand(cmd Command) error {
+	switch cmd.Name {
+	case start:
+		h.timer.start()
+	case pause:
+		h.timer.pause()
+	case resume:
+		h.timer.resume()
+	case reset:
+		h.timer.reset()
+	case adjust:
+		duration, err := strconv.Atoi(cmd.Args["duration"])
+		if err != nil {
+			return errors.New("timer parseCommand: can not parse timer duration")
+		}
+		h.timer.adjust(duration)
+	default:
+		return fmt.Errorf("unknown command: %v", cmd)
+	}
+	return nil
 }
 
 func (h *hub) registerClient(client *Client) {
 	client.send <- h.state()
-	update := update{
-		UpdateType: "hub",
-		Name:       connect,
+	update := Update{
+		Name: connect,
 	}
 	h.broadcast(update)
 	h.clients[client] = true
@@ -97,9 +154,8 @@ func (h *hub) registerClient(client *Client) {
 }
 
 func (h *hub) unregisterClient(client *Client) {
-	update := update{
-		UpdateType: "hub",
-		Name:       disconnect,
+	update := Update{
+		Name: disconnect,
 	}
 	h.broadcast(update)
 	delete(h.clients, client)
@@ -112,26 +168,24 @@ func (h *hub) unregisterClient(client *Client) {
 }
 
 func (h *hub) closeHub() {
-	h.timer.Close()
-	close(h.commands)
 	close(h.register)
+	h.timer.close()
+	close(h.commands)
 	close(h.unregister)
-	h.unregisterHub <- h.id
-	close(h.done)
+	h.unregisterHub(h.id)
 
 	slog.Info(fmt.Sprintf("hub: id %v - closed", h.id))
 }
 
-func (h *hub) broadcast(update update) {
+func (h *hub) broadcast(update Update) {
 	for client := range h.clients {
 		client.send <- update
 	}
 }
 
-func (h *hub) state() update {
-	return update{
-		UpdateType: "hub",
-		Name:       state,
+func (h *hub) state() Update {
+	return Update{
+		Name: state,
 		Args: map[string]string{
 			"focusDuration":  strconv.Itoa(h.timer.focusDuration),
 			"breakDuration":  strconv.Itoa(h.timer.breakDuration),
@@ -151,7 +205,7 @@ func (h *hub) scheduleClose() {
 	if len(h.clients) != 0 {
 		return
 	}
-	h.done <- struct{}{}
+	h.cancel()
 
 	slog.Info(fmt.Sprintf("hub: id %v - closing", h.id))
 }

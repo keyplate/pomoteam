@@ -4,37 +4,11 @@ package timer
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"log"
 	"log/slog"
 	"strconv"
 	"sync/atomic"
 	"time"
-)
-
-const (
-	// Update event types
-	timeUpdate       = "TIME_UPDATE"
-	timeOut          = "TIME_OUT"
-	started          = "STARTED"
-	stopped          = "STOPPED"
-	durationAdjusted = "DURATION_ADJUSTED"
-	closed           = "CLOSED"
-	resumed          = "RESUMED"
-	paused           = "PAUSED"
-	sessionUpdate    = "SESSION_UPDATE"
-	timerReset       = "TIMER_RESET"
-)
-
-const (
-	// Command types
-	start  = "START"
-	stop   = "STOP"
-	pause  = "PAUSE"
-	resume = "RESUME"
-	adjust = "ADJUST"
-	reset  = "RESET"
 )
 
 const (
@@ -43,28 +17,16 @@ const (
 	sessionBreak = "BREAK"
 )
 
-type timerCommand struct {
-	Name string `json:"name"`
-	Arg  string `json:"args"`
-}
-
-type timerUpdate struct {
-	Name string            `json:"name"`
-	Args map[string]string `json:"args"`
-}
-
 // Timer represents a pomodoro-style timer that alternates between focus and break sessions
 type timer struct {
 	// Channels for communication
-	ticker   *time.Ticker
-	updates  chan timerUpdate
-	commands chan timerCommand
+	ticker  *time.Ticker
+	updates chan Update
 
 	// Session control
 	sessionDone chan struct{}
 
 	// Lifecycle control
-	cancel context.CancelFunc
 	ctx    context.Context
 
 	// Session configuration
@@ -78,16 +40,15 @@ type timer struct {
 	sessionType    string
 }
 
-func NewTimer(ctx context.Context, breakDuration, focusDuration int, sessionType string) *timer {
-	ctx, cancel := context.WithCancel(ctx)
+func NewTimer(ctx context.Context, updates chan Update) *timer {
+	breakDuration := 300
+	focusDuration := 1500
+	sessionType := sessionFocus
 
 	timer := &timer{
-		ticker:   time.NewTicker(1 * time.Second),
-		updates:  make(chan timerUpdate),
-		commands: make(chan timerCommand),
-
-		ctx:    ctx,
-		cancel: cancel,
+		ticker:  time.NewTicker(1 * time.Second),
+		updates: updates,
+		ctx:     ctx,
 
 		breakDuration:  breakDuration,
 		focusDuration:  focusDuration,
@@ -96,44 +57,7 @@ func NewTimer(ctx context.Context, breakDuration, focusDuration int, sessionType
 		sessionType:    sessionType,
 	}
 
-	go timer.listenCommands()
 	return timer
-}
-
-func (t *timer) listenCommands() {
-	for {
-		select {
-		case command := <-t.commands:
-			err := t.parseCommand(command)
-			if err != nil {
-				log.Print(err)
-			}
-		case <-t.ctx.Done():
-			return
-		}
-	}
-}
-
-func (t *timer) parseCommand(command timerCommand) error {
-	switch command.Name {
-	case start:
-		t.start()
-	case pause:
-		t.pause()
-	case resume:
-		t.resume()
-	case reset:
-		t.reset()
-	case adjust:
-		duration, err := strconv.Atoi(command.Arg)
-		if err != nil {
-			return errors.New("timer parseCommand: can not parse timer duration")
-		}
-		t.adjust(duration)
-	default:
-		return fmt.Errorf("unknown command: %v", command)
-	}
-	return nil
 }
 
 func (t *timer) start() {
@@ -306,14 +230,12 @@ func (t *timer) sendUpdate(name string, args map[string]string) {
 	select {
 	case <-t.ctx.Done():
 		return
-	case t.updates <- timerUpdate{Name: name, Args: args}:
+	case t.updates <- Update{Name: name, Args: args}:
 		slog.Debug(fmt.Sprintf("timer: update sent - name: %s, args: %v", name, args))
 	}
 }
 
-func (t *timer) Close() {
-	t.cancel()
-
+func (t *timer) close() {
 	// Stop the timer
 	t.ticker.Stop()
 
@@ -323,6 +245,5 @@ func (t *timer) Close() {
 	}
 
 	// Close channels in correct order
-	close(t.commands)
 	close(t.updates)
 }
