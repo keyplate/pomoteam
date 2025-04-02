@@ -83,9 +83,9 @@ func newHub(unregisterHub func(uuid.UUID)) *hub {
 }
 
 func (h *hub) run() {
-    go h.listenCommands()
+	go h.listenCommands()
 
-    for {
+	for {
 		select {
 		case upd := <-h.updates:
 			slog.Debug(fmt.Sprintf("hub: id %v - received update", h.id))
@@ -112,7 +112,7 @@ func (h *hub) listenCommands() {
 		case command := <-h.commands:
 			err := h.handleCommand(command)
 			if err != nil {
-		    	slog.Info(fmt.Sprintf("hub: id %v - error during command processing %v", h.id, err))
+				slog.Info(fmt.Sprintf("hub: id %v - error during command processing %v", h.id, err))
 			}
 		case <-h.ctx.Done():
 			return

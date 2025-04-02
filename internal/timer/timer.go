@@ -27,7 +27,7 @@ type timer struct {
 	sessionDone chan struct{}
 
 	// Lifecycle control
-	ctx    context.Context
+	ctx context.Context
 
 	// Session configuration
 	breakDuration int
