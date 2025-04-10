@@ -2,7 +2,6 @@ package timer
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"strconv"
@@ -12,7 +11,7 @@ import (
 )
 
 const (
-	// Update event types
+	// update names
 	timeUpdate       = "TIME_UPDATE"
 	timeOut          = "TIME_OUT"
 	started          = "STARTED"
@@ -26,13 +25,19 @@ const (
 )
 
 const (
-	// Command types
+	// command names
 	start  = "START"
 	stop   = "STOP"
 	pause  = "PAUSE"
 	resume = "RESUME"
 	adjust = "ADJUST"
 	reset  = "RESET"
+)
+
+const (
+	// command types
+	hubType   = "HUB"
+	timerType = "TIMER"
 )
 
 const (
@@ -47,7 +52,8 @@ type Update struct {
 }
 
 type Command struct {
-	Name string            `jsong:"name"`
+	Type string            `json:"type"`
+	Name string            `json:"name"`
 	Args map[string]string `json:"args,omitempty"`
 }
 
@@ -67,10 +73,12 @@ type hub struct {
 func newHub(unregisterHub func(uuid.UUID)) *hub {
 	ctx, cancel := context.WithCancel(context.Background())
 	updates := make(chan Update)
+	timer := NewTimer(ctx, updates)
+	go timer.run()
 
 	return &hub{
 		id:            uuid.New(),
-		timer:         NewTimer(ctx, updates),
+		timer:         timer,
 		clients:       map[*Client]bool{},
 		commands:      make(chan Command),
 		updates:       updates,
@@ -83,8 +91,6 @@ func newHub(unregisterHub func(uuid.UUID)) *hub {
 }
 
 func (h *hub) run() {
-	go h.listenCommands()
-
 	for {
 		select {
 		case upd := <-h.updates:
@@ -99,6 +105,10 @@ func (h *hub) run() {
 			slog.Debug(fmt.Sprintf("hub: id %v - received unregistration", h.id))
 			h.unregisterClient(client)
 
+		case cmd := <-h.commands:
+			slog.Debug(fmt.Sprintf("hub: id %v - received command", h.id))
+			h.handleCommand(cmd)
+
 		case <-h.ctx.Done():
 			h.closeHub()
 			return
@@ -106,40 +116,10 @@ func (h *hub) run() {
 	}
 }
 
-func (h *hub) listenCommands() {
-	for {
-		select {
-		case command := <-h.commands:
-			err := h.handleCommand(command)
-			if err != nil {
-				slog.Info(fmt.Sprintf("hub: id %v - error during command processing %v", h.id, err))
-			}
-		case <-h.ctx.Done():
-			return
-		}
+func (h *hub) handleCommand(cmd Command) {
+	if cmd.Type == timerType {
+		h.timer.commands <- cmd
 	}
-}
-
-func (h *hub) handleCommand(cmd Command) error {
-	switch cmd.Name {
-	case start:
-		h.timer.start()
-	case pause:
-		h.timer.pause()
-	case resume:
-		h.timer.resume()
-	case reset:
-		h.timer.reset()
-	case adjust:
-		duration, err := strconv.Atoi(cmd.Args["duration"])
-		if err != nil {
-			return errors.New("timer parseCommand: can not parse timer duration")
-		}
-		h.timer.adjust(duration)
-	default:
-		return fmt.Errorf("unknown command: %v", cmd)
-	}
-	return nil
 }
 
 func (h *hub) registerClient(client *Client) {
