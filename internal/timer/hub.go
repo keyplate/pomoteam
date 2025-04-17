@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -66,8 +67,10 @@ type hub struct {
 	register      chan *Client
 	unregister    chan *Client
 	unregisterHub func(uuid.UUID)
+	scheduleClose *time.Timer
 	ctx           context.Context
 	cancel        context.CancelFunc
+	wg            sync.WaitGroup
 }
 
 func newHub(unregisterHub func(uuid.UUID)) *hub {
@@ -84,6 +87,7 @@ func newHub(unregisterHub func(uuid.UUID)) *hub {
 		updates:       updates,
 		register:      make(chan *Client),
 		unregister:    make(chan *Client),
+		scheduleClose: nil,
 		ctx:           ctx,
 		cancel:        cancel,
 		unregisterHub: unregisterHub,
@@ -92,6 +96,11 @@ func newHub(unregisterHub func(uuid.UUID)) *hub {
 
 func (h *hub) run() {
 	for {
+		var closeTimerChan <-chan time.Time
+		if h.scheduleClose != nil {
+			closeTimerChan = h.scheduleClose.C
+		}
+
 		select {
 		case upd := <-h.updates:
 			slog.Debug(fmt.Sprintf("hub: id %v - received update", h.id))
@@ -109,6 +118,10 @@ func (h *hub) run() {
 			slog.Debug(fmt.Sprintf("hub: id %v - received command", h.id))
 			h.handleCommand(cmd)
 
+		case <-closeTimerChan:
+			slog.Debug(fmt.Sprintf("hub: id %v - closing", h.id))
+			h.cancel()
+
 		case <-h.ctx.Done():
 			h.closeHub()
 			return
@@ -119,6 +132,9 @@ func (h *hub) run() {
 func (h *hub) handleCommand(cmd Command) {
 	if cmd.Type == timerType {
 		h.timer.commands <- cmd
+	}
+	if cmd.Type == hubType {
+
 	}
 }
 
@@ -131,19 +147,26 @@ func (h *hub) registerClient(client *Client) {
 	h.clients[client] = true
 
 	slog.Info(fmt.Sprintf("hub: id %v - registered client", h.id))
+
+	if h.scheduleClose != nil {
+		slog.Info(fmt.Sprintf("hub: id %v - scheduled closure canceled", h.id))
+		h.scheduleClose.Stop()
+		h.scheduleClose = nil
+	}
 }
 
 func (h *hub) unregisterClient(client *Client) {
 	update := Update{
 		Name: disconnect,
 	}
-	h.broadcast(update)
 	delete(h.clients, client)
+	h.broadcast(update)
 
 	slog.Info(fmt.Sprintf("hub: id %v - unregistered client", h.id))
 
-	if len(h.clients) == 0 {
-		go h.scheduleClose()
+	if len(h.clients) == 0 && h.scheduleClose == nil {
+		slog.Info(fmt.Sprintf("hub: id %v - scheduling closure in 120s", h.id))
+		h.scheduleClose = time.NewTimer(120 * time.Second)
 	}
 }
 
@@ -158,34 +181,22 @@ func (h *hub) closeHub() {
 }
 
 func (h *hub) broadcast(update Update) {
+	//todo: drop updates for client who cannot accept message after some duration x.
 	for client := range h.clients {
 		client.send <- update
 	}
 }
 
 func (h *hub) state() Update {
+	stateCache := h.timer.readState()
 	return Update{
 		Name: state,
 		Args: map[string]string{
-			"focusDuration":  strconv.Itoa(h.timer.focusDuration),
-			"breakDuration":  strconv.Itoa(h.timer.breakDuration),
-			"sessionType":    h.timer.sessionType,
-			"isRunning":      strconv.FormatBool(h.timer.isRunning),
-			"isSessionEnded": strconv.FormatBool(h.timer.isSessionEnded),
+			"focusDuration":  strconv.Itoa(stateCache.focusDuration),
+			"breakDuration":  strconv.Itoa(stateCache.breakDuration),
+			"sessionType":    stateCache.sessionType,
+			"isRunning":      strconv.FormatBool(stateCache.isRunning),
+			"isSessionEnded": strconv.FormatBool(stateCache.isSessionEnded),
 		},
 	}
-}
-
-func (h *hub) scheduleClose() {
-	slog.Info(fmt.Sprintf("hub: id %v - closure scheduled", h.id))
-
-	timer := time.NewTimer(120 * time.Second)
-	<-timer.C
-
-	if len(h.clients) != 0 {
-		return
-	}
-	h.cancel()
-
-	slog.Info(fmt.Sprintf("hub: id %v - closing", h.id))
 }

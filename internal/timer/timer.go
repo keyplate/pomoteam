@@ -1,4 +1,4 @@
-// This package represents a concurrent timer for the flow-time techenque (which is a bit more agile version of pomodoro).
+// This package represents a concurrent timer for the flow-time technique (which is a bit more agile version of pomodoro).
 // Timer is operated by using commands. Timer publishes updates notifying users about its state changes.
 package timer
 
@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -19,11 +20,16 @@ const (
 // Timer represents a pomodoro-style timer that alternates between focus and break sessions
 type timer struct {
 	// Channels for communication
-	ticker   *time.Ticker
-	updates  chan Update
-	commands chan Command
-	ctx      context.Context
+	ticker     *time.Ticker
+	updates    chan Update
+	commands   chan Command
+	ctx        context.Context
+	mu         sync.Mutex
+	stateCache timerState
+	timerState
+}
 
+type timerState struct {
 	// Session configuration
 	breakDuration int
 	focusDuration int
@@ -48,12 +54,15 @@ func NewTimer(ctx context.Context, updates chan Update) *timer {
 		commands: make(chan Command),
 		ctx:      ctx,
 
-		breakDuration:  breakDuration,
-		focusDuration:  focusDuration,
-		isRunning:      false,
-		isSessionEnded: true,
-		sessionType:    sessionType,
+		timerState: timerState{
+			breakDuration:  breakDuration,
+			focusDuration:  focusDuration,
+			isRunning:      false,
+			isSessionEnded: true,
+			sessionType:    sessionType,
+		},
 	}
+	timer.stateCache = timer.timerState
 
 	return timer
 }
@@ -72,7 +81,12 @@ func (t *timer) run() {
 		case <-t.ctx.Done():
 			t.close()
 			return
+		default:
+			t.mu.Lock()
+			t.stateCache = t.timerState
+			t.mu.Unlock()
 		}
+
 	}
 }
 
@@ -246,6 +260,14 @@ func (t *timer) adjustSessionDuration(delta int) {
 		"breakDuration": strconv.Itoa(t.breakDuration),
 		"focusDuration": strconv.Itoa(t.focusDuration),
 	})
+}
+
+func (t *timer) readState() timerState {
+	t.mu.Lock()
+	stateCopy := t.stateCache
+	t.mu.Unlock()
+
+	return stateCopy
 }
 
 func (t *timer) sendUpdate(name string, args map[string]string) {
