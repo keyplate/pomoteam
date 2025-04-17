@@ -2,6 +2,7 @@ package timer
 
 import (
 	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -62,6 +63,7 @@ func (c *Client) read() {
 	defer func() {
 		c.conn.Close()
 		c.hub.unregister <- c
+		slog.Debug("Exit read for client")
 	}()
 
 	c.conn.SetReadDeadline(time.Now().Add(pongWait))
@@ -82,6 +84,7 @@ func (c *Client) write() {
 	defer func() {
 		c.conn.Close()
 		ticker.Stop()
+		slog.Debug("Exit write for client")
 	}()
 
 	for {
