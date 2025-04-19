@@ -28,6 +28,8 @@ var upgrader = websocket.Upgrader{
 }
 
 type Client struct {
+	id   uuid.UUID
+	name string
 	hub  *hub
 	conn *websocket.Conn
 	send chan Update
@@ -52,7 +54,7 @@ func ServeWs(hs *HubService, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client := &Client{hub: hub, conn: conn, send: make(chan Update)}
+	client := &Client{id: uuid.New(), hub: hub, conn: conn, send: make(chan Update, 1)}
 	hub.register <- client
 
 	go client.read()
@@ -71,6 +73,7 @@ func (c *Client) read() {
 	for {
 		var command Command
 		err := c.conn.ReadJSON(&command)
+		command.clientId = c.id
 		if err != nil {
 			log.Printf("error: %v", err)
 			break

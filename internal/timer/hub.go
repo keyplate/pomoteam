@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -23,16 +22,20 @@ const (
 	paused           = "PAUSED"
 	sessionUpdate    = "SESSION_UPDATE"
 	timerReset       = "TIMER_RESET"
+	usrName          = "USER_NAME"
+	usrId            = "USER_ID"
+	users            = "USERS"
 )
 
 const (
 	// command names
-	start  = "START"
-	stop   = "STOP"
-	pause  = "PAUSE"
-	resume = "RESUME"
-	adjust = "ADJUST"
-	reset  = "RESET"
+	start      = "START"
+	stop       = "STOP"
+	pause      = "PAUSE"
+	resume     = "RESUME"
+	adjust     = "ADJUST"
+	reset      = "RESET"
+	setUsrName = "SET_USER_NAME"
 )
 
 const (
@@ -47,21 +50,10 @@ const (
 	state      = "STATE"
 )
 
-type Update struct {
-	Name string            `json:"name"`
-	Args map[string]string `json:"args,omitempty"`
-}
-
-type Command struct {
-	Type string            `json:"type"`
-	Name string            `json:"name"`
-	Args map[string]string `json:"args,omitempty"`
-}
-
 type hub struct {
 	id            uuid.UUID
 	timer         *timer
-	clients       map[*Client]bool
+	clients       map[uuid.UUID]*Client
 	commands      chan Command
 	updates       chan Update
 	register      chan *Client
@@ -70,7 +62,6 @@ type hub struct {
 	scheduleClose *time.Timer
 	ctx           context.Context
 	cancel        context.CancelFunc
-	wg            sync.WaitGroup
 }
 
 func newHub(unregisterHub func(uuid.UUID)) *hub {
@@ -82,7 +73,7 @@ func newHub(unregisterHub func(uuid.UUID)) *hub {
 	return &hub{
 		id:            uuid.New(),
 		timer:         timer,
-		clients:       map[*Client]bool{},
+		clients:       map[uuid.UUID]*Client{},
 		commands:      make(chan Command),
 		updates:       updates,
 		register:      make(chan *Client),
@@ -134,17 +125,34 @@ func (h *hub) handleCommand(cmd Command) {
 		h.timer.commands <- cmd
 	}
 	if cmd.Type == hubType {
-
+		switch cmd.Name {
+		case setUsrName:
+			h.handleSetUsrName(cmd)
+		}
 	}
+}
+
+func (h *hub) handleSetUsrName(cmd Command) {
+	client, ok := h.clients[cmd.clientId]
+	if !ok {
+		slog.Debug(fmt.Sprintf("hub - command executeion error: unknown clientId %v", cmd.clientId))
+		return
+	}
+	client.name = cmd.Args["name"]
+	h.broadcast(Update{
+		Name: usrName,
+        Args: map[string]string{"id": client.id.String(), "name": client.name},
+	})
 }
 
 func (h *hub) registerClient(client *Client) {
 	client.send <- h.state()
-	update := Update{
-		Name: connect,
+	client.send <- Update{
+		Name: usrId,
+		Args: map[string]string{"id": client.id.String()},
 	}
-	h.broadcast(update)
-	h.clients[client] = true
+
+	h.clients[client.id] = client
 
 	slog.Info(fmt.Sprintf("hub: id %v - registered client", h.id))
 
@@ -159,7 +167,7 @@ func (h *hub) unregisterClient(client *Client) {
 	update := Update{
 		Name: disconnect,
 	}
-	delete(h.clients, client)
+	delete(h.clients, client.id)
 	h.broadcast(update)
 
 	slog.Info(fmt.Sprintf("hub: id %v - unregistered client", h.id))
@@ -182,7 +190,7 @@ func (h *hub) closeHub() {
 
 func (h *hub) broadcast(update Update) {
 	//todo: drop updates for client who cannot accept message after some duration x.
-	for client := range h.clients {
+	for _, client := range h.clients {
 		client.send <- update
 	}
 }
@@ -194,6 +202,7 @@ func (h *hub) state() Update {
 		Args: map[string]string{
 			"focusDuration":  strconv.Itoa(stateCache.focusDuration),
 			"breakDuration":  strconv.Itoa(stateCache.breakDuration),
+			"timeLeft":       strconv.Itoa(stateCache.timeLeft),
 			"sessionType":    stateCache.sessionType,
 			"isRunning":      strconv.FormatBool(stateCache.isRunning),
 			"isSessionEnded": strconv.FormatBool(stateCache.isSessionEnded),
