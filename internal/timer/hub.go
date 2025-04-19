@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -141,7 +140,7 @@ func (h *hub) handleSetUsrName(cmd Command) {
 	client.name = cmd.Args["name"]
 	h.broadcast(Update{
 		Name: usrName,
-        Args: map[string]string{"id": client.id.String(), "name": client.name},
+		Args: map[string]any{"id": client.id, "name": client.name},
 	})
 }
 
@@ -149,7 +148,7 @@ func (h *hub) registerClient(client *Client) {
 	client.send <- h.state()
 	client.send <- Update{
 		Name: usrId,
-		Args: map[string]string{"id": client.id.String()},
+		Args: map[string]any{"id": client.id},
 	}
 
 	h.clients[client.id] = client
@@ -199,13 +198,13 @@ func (h *hub) state() Update {
 	stateCache := h.timer.readState()
 	return Update{
 		Name: state,
-		Args: map[string]string{
-			"focusDuration":  strconv.Itoa(stateCache.focusDuration),
-			"breakDuration":  strconv.Itoa(stateCache.breakDuration),
-			"timeLeft":       strconv.Itoa(stateCache.timeLeft),
+		Args: map[string]any{
+			"focusDuration":  stateCache.focusDuration,
+			"breakDuration":  stateCache.breakDuration,
+			"timeLeft":       stateCache.timeLeft,
 			"sessionType":    stateCache.sessionType,
-			"isRunning":      strconv.FormatBool(stateCache.isRunning),
-			"isSessionEnded": strconv.FormatBool(stateCache.isSessionEnded),
+			"isRunning":      stateCache.isRunning,
+			"isSessionEnded": stateCache.isSessionEnded,
 		},
 	}
 }

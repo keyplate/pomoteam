@@ -121,10 +121,10 @@ func (t *timer) start() {
 	t.timeLeft = t.getDurationForSession()
 	t.isRunning = true
 	t.isSessionEnded = false
-	t.sendUpdate(started, map[string]string{
-		"isRunning":      strconv.FormatBool(t.isRunning),
-		"isSessionEnded": strconv.FormatBool(t.isSessionEnded),
-		"timeLeft":       strconv.Itoa(int(t.timeLeft)),
+	t.sendUpdate(started, map[string]any{
+		"isRunning":      t.isRunning,
+		"isSessionEnded": t.isSessionEnded,
+		"timeLeft":       t.timeLeft,
 	})
 
 	t.ticker.Reset(1 * time.Second)
@@ -147,9 +147,9 @@ func (t *timer) tick() {
 	t.timeLeft--
 	duration := t.getDurationForSession()
 
-	t.sendUpdate(timeUpdate, map[string]string{
-		"timeLeft": strconv.Itoa(t.timeLeft),
-		"duration": strconv.Itoa(duration),
+	t.sendUpdate(timeUpdate, map[string]any{
+		"timeLeft": t.timeLeft,
+		"duration": duration,
 	})
 }
 
@@ -159,9 +159,9 @@ func (t *timer) timeOut() {
 	t.isSessionEnded = true
 	t.switchSession()
 
-	t.sendUpdate(timeOut, map[string]string{
-		"isRunning":      strconv.FormatBool(t.isRunning),
-		"isSessionEnded": strconv.FormatBool(t.isSessionEnded),
+	t.sendUpdate(timeOut, map[string]any{
+		"isRunning":      t.isRunning,
+		"isSessionEnded": t.isSessionEnded,
 	})
 }
 
@@ -172,8 +172,8 @@ func (t *timer) pause() {
 	t.isRunning = false
 	t.ticker.Stop()
 
-	t.sendUpdate(paused, map[string]string{
-		"isRunning": strconv.FormatBool(t.isRunning),
+	t.sendUpdate(paused, map[string]any{
+		"isRunning": t.isRunning,
 	})
 }
 
@@ -186,9 +186,9 @@ func (t *timer) reset() {
 	t.isSessionEnded = true
 	t.ticker.Stop()
 
-	t.sendUpdate(timerReset, map[string]string{
-		"isRunning":      strconv.FormatBool(t.isRunning),
-		"isSessionEnded": strconv.FormatBool(t.isSessionEnded),
+	t.sendUpdate(timerReset, map[string]any{
+		"isRunning":      t.isRunning,
+		"isSessionEnded": t.isSessionEnded,
 	})
 }
 
@@ -200,8 +200,8 @@ func (t *timer) resume() {
 	t.isRunning = true
 	t.ticker.Reset(1 * time.Second)
 
-	t.sendUpdate(resumed, map[string]string{
-		"isRunning": strconv.FormatBool(t.isRunning),
+	t.sendUpdate(resumed, map[string]any{
+		"isRunning": t.isRunning,
 	})
 }
 
@@ -212,7 +212,7 @@ func (t *timer) switchSession() {
 		t.sessionType = sessionBreak
 	}
 
-	t.sendUpdate(sessionUpdate, map[string]string{
+	t.sendUpdate(sessionUpdate, map[string]any{
 		"sessionType": t.sessionType,
 	})
 }
@@ -233,10 +233,10 @@ func (t *timer) adjustTimeLeft(delta int) {
 		t.timeLeft += delta
 	}
 
-	t.sendUpdate(durationAdjusted, map[string]string{
-		"timeLeft":      strconv.Itoa(int(t.timeLeft)),
-		"breakDuration": strconv.Itoa(t.breakDuration),
-		"focusDuration": strconv.Itoa(t.focusDuration),
+	t.sendUpdate(durationAdjusted, map[string]any{
+		"timeLeft":      t.timeLeft,
+		"breakDuration": t.breakDuration,
+		"focusDuration": t.focusDuration,
 	})
 }
 
@@ -255,10 +255,10 @@ func (t *timer) adjustSessionDuration(delta int) {
 		t.focusDuration = calcDuration(t.focusDuration, delta)
 	}
 
-	t.sendUpdate(durationAdjusted, map[string]string{
-		"timeLeft":      strconv.Itoa(int(t.timeLeft)),
-		"breakDuration": strconv.Itoa(t.breakDuration),
-		"focusDuration": strconv.Itoa(t.focusDuration),
+	t.sendUpdate(durationAdjusted, map[string]any{
+		"timeLeft":      t.timeLeft,
+		"breakDuration": t.breakDuration,
+		"focusDuration": t.focusDuration,
 	})
 }
 
@@ -270,7 +270,7 @@ func (t *timer) readState() timerState {
 	return stateCopy
 }
 
-func (t *timer) sendUpdate(name string, args map[string]string) {
+func (t *timer) sendUpdate(name string, args map[string]any) {
 	slog.Debug(fmt.Sprintf("timer: update pending - name: %s, args: %v", name, args))
 
 	select {
