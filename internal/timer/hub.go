@@ -138,10 +138,7 @@ func (h *hub) handleSetUsrName(cmd Command) {
 		return
 	}
 	client.name = cmd.Args["name"]
-	h.broadcast(Update{
-		Name: usrName,
-		Args: map[string]any{"id": client.id, "name": client.name},
-	})
+	h.broadcast(h.users())
 }
 
 func (h *hub) registerClient(client *Client) {
@@ -152,6 +149,8 @@ func (h *hub) registerClient(client *Client) {
 	}
 
 	h.clients[client.id] = client
+
+	h.broadcast(h.users())
 
 	slog.Info(fmt.Sprintf("hub: id %v - registered client", h.id))
 
@@ -205,6 +204,20 @@ func (h *hub) state() Update {
 			"sessionType":    stateCache.sessionType,
 			"isRunning":      stateCache.isRunning,
 			"isSessionEnded": stateCache.isSessionEnded,
+		},
+	}
+}
+
+func (h *hub) users() Update {
+	var userList []User
+	for k, v := range h.clients {
+		userList = append(userList, User{k, v.name})
+	}
+
+	return Update{
+		Name: users,
+		Args: map[string]any{
+			"users": userList,
 		},
 	}
 }
