@@ -100,6 +100,8 @@ func (t *timer) executeCommand(cmd Command) error {
 		t.resume()
 	case reset:
 		t.reset()
+	case skip:
+		t.skip()
 	case adjust:
 		duration, err := strconv.Atoi(cmd.Args["duration"])
 		if err != nil {
@@ -190,6 +192,11 @@ func (t *timer) reset() {
 		"isRunning":      t.isRunning,
 		"isSessionEnded": t.isSessionEnded,
 	})
+}
+
+func (t *timer) skip() {
+	t.reset()
+	t.switchSession()
 }
 
 func (t *timer) resume() {

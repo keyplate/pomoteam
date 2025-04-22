@@ -34,6 +34,7 @@ const (
 	resume     = "RESUME"
 	adjust     = "ADJUST"
 	reset      = "RESET"
+	skip       = "SKIP"
 	setUsrName = "SET_USER_NAME"
 )
 
