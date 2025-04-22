@@ -1,5 +1,5 @@
 # Collaborative timer
-[![Go](https://github.com/keyplate/pomoteam/actions/workflows/go.yml/badge.svg)](https://github.com/keyplate/pomoteam/actions/workflows/go.yml)
+[![Go](https://github.com/keyplate/pomoteam/actions/workflows/ci.yml/badge.svg)](https://github.com/keyplate/pomoteam/actions/workflows/go.yml)
 
 A synchronized timer for shared online focus sessions that keeps everyone on the same page.
 
